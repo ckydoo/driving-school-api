@@ -1,10 +1,5 @@
-
-
-// =====================================================
-
 <?php
 // app/Models/Notification.php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;

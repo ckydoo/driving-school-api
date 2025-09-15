@@ -1,7 +1,5 @@
-
 <?php
 // app/Models/Schedule.php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -61,10 +59,6 @@ class Schedule extends Model
         return $this->belongsTo(Fleet::class, 'vehicle');
     }
 
-    public function billingRecords()
-    {
-        return $this->hasMany(BillingRecord::class, 'scheduleId');
-    }
 
     // Scopes
     public function scopeUpcoming($query)

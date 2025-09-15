@@ -1,7 +1,5 @@
-
 <?php
 // app/Models/Invoice.php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -52,10 +50,7 @@ class Invoice extends Model
         return $this->hasMany(Payment::class, 'invoiceId');
     }
 
-    public function billingRecords()
-    {
-        return $this->hasMany(BillingRecord::class, 'invoiceId');
-    }
+
 
     // Accessors
     public function getBalanceAttribute()
