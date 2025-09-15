@@ -6,53 +6,79 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
-        'fname', 'lname', 'email', 'password', 'date_of_birth',
-        'role', 'status', 'gender', 'phone', 'address', 'idnumber',
-        'profile_picture', 'emergency_contact'
+        'fname',
+        'lname', 
+        'email',
+        'gender',
+        'date_of_birth',
+        'phone',
+        'idnumber',
+        'address',
+        'password',
+        'course',
+        'role',
+        'courseIds',
+        'status',
+        'last_login',
+        'last_login_method'
     ];
 
     protected $hidden = [
-        'password', 'remember_token',
+        'password',
+        'remember_token',
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
         'date_of_birth' => 'date',
-        'emergency_contact' => 'array',
-        'password' => 'hashed',
+        'last_login' => 'datetime',
+        'courseIds' => 'array', // Will be stored as JSON in database
     ];
 
     // Relationships
     public function studentSchedules()
     {
-        return $this->hasMany(Schedule::class, 'student_id');
+        return $this->hasMany(Schedule::class, 'student');
     }
 
     public function instructorSchedules()
     {
-        return $this->hasMany(Schedule::class, 'instructor_id');
+        return $this->hasMany(Schedule::class, 'instructor');
     }
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'student_id');
+        return $this->hasMany(Invoice::class, 'student');
     }
 
     public function payments()
     {
-        return $this->hasMany(Payment::class, 'student_id');
+        return $this->hasMany(Payment::class, 'userId');
     }
 
     public function assignedVehicles()
     {
-        return $this->hasMany(Fleet::class, 'assigned_instructor_id');
+        return $this->hasMany(Fleet::class, 'instructor');
+    }
+
+    public function notesWritten()
+    {
+        return $this->hasMany(Note::class, 'note_by');
+    }
+
+    public function notesReceived()
+    {
+        return $this->hasMany(Note::class, 'note_for');
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'user');
     }
 
     // Scopes
@@ -68,7 +94,7 @@ class User extends Authenticatable
 
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('status', 'Active');
     }
 
     // Accessors

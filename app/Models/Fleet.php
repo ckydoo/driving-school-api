@@ -1,3 +1,4 @@
+
 <?php
 // app/Models/Fleet.php
 
@@ -13,42 +14,39 @@ class Fleet extends Model
     protected $table = 'fleet';
 
     protected $fillable = [
-        'make', 'model', 'registration', 'year', 'transmission',
-        'status', 'assigned_instructor_id', 'insurance_expiry',
-        'mot_expiry', 'mileage', 'notes'
+        'carplate',
+        'make',
+        'model',
+        'modelyear',
+        'instructor'
     ];
 
     protected $casts = [
-        'year' => 'integer',
-        'mileage' => 'integer',
-        'insurance_expiry' => 'date',
-        'mot_expiry' => 'date',
+        'instructor' => 'integer',
     ];
 
     // Relationships
     public function assignedInstructor()
     {
-        return $this->belongsTo(User::class, 'assigned_instructor_id');
+        return $this->belongsTo(User::class, 'instructor');
     }
 
     public function schedules()
     {
-        return $this->hasMany(Schedule::class, 'car_id');
+        return $this->hasMany(Schedule::class, 'vehicle');
     }
 
     // Scopes
     public function scopeAvailable($query)
     {
-        return $query->where('status', 'available');
+        return $query->whereHas('assignedInstructor', function($q) {
+            $q->where('status', 'Active');
+        });
     }
 
-    public function scopeManual($query)
+    // Accessors
+    public function getFullVehicleNameAttribute()
     {
-        return $query->where('transmission', 'manual');
-    }
-
-    public function scopeAutomatic($query)
-    {
-        return $query->where('transmission', 'automatic');
+        return $this->make . ' ' . $this->model . ' (' . $this->carplate . ')';
     }
 }

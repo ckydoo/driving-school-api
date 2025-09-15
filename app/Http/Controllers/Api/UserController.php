@@ -70,7 +70,6 @@ class UserController extends BaseController
             'phone' => $request->phone,
             'address' => $request->address,
             'idnumber' => $request->idnumber,
-            'emergency_contact' => $request->emergency_contact,
         ]);
 
         return $this->sendResponse($user, 'User created successfully.');
@@ -114,7 +113,7 @@ class UserController extends BaseController
 
         $user->update($request->only([
             'fname', 'lname', 'email', 'date_of_birth', 'role', 'status',
-            'gender', 'phone', 'address', 'idnumber', 'emergency_contact'
+            'gender', 'phone', 'address', 'idnumber'
         ]));
 
         return $this->sendResponse($user, 'User updated successfully.');

@@ -1,3 +1,4 @@
+
 <?php
 // app/Models/Payment.php
 
@@ -11,23 +12,50 @@ class Payment extends Model
     use HasFactory;
 
     protected $fillable = [
-        'invoice_id', 'student_id', 'amount', 'payment_method',
-        'payment_date', 'reference_number', 'notes', 'receipt_path'
+        'invoiceId',
+        'amount',
+        'method',
+        'status',
+        'paymentDate',
+        'notes',
+        'reference',
+        'receipt_path',
+        'receipt_generated_at',
+        'cloud_storage_path',
+        'receipt_file_size',
+        'receipt_type',
+        'receipt_generated',
+        'userId'
     ];
 
     protected $casts = [
+        'invoiceId' => 'integer',
         'amount' => 'decimal:2',
-        'payment_date' => 'datetime',
+        'paymentDate' => 'datetime',
+        'receipt_generated' => 'boolean',
+        'receipt_file_size' => 'integer',
+        'userId' => 'integer',
     ];
 
     // Relationships
     public function invoice()
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsTo(Invoice::class, 'invoiceId');
     }
 
-    public function student()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(User::class, 'userId');
+    }
+
+    // Scopes
+    public function scopePaid($query)
+    {
+        return $query->where('status', 'Paid');
+    }
+
+    public function scopeWithReceipt($query)
+    {
+        return $query->where('receipt_generated', true);
     }
 }

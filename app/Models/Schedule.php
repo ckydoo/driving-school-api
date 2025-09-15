@@ -1,3 +1,4 @@
+
 <?php
 // app/Models/Schedule.php
 
@@ -11,55 +12,78 @@ class Schedule extends Model
     use HasFactory;
 
     protected $fillable = [
-        'student_id', 'instructor_id', 'course_id', 'car_id',
-        'start', 'end', 'class_type', 'status', 'attended',
-        'lessons_deducted', 'is_recurring', 'recurring_pattern',
-        'recurring_end_date', 'notes', 'instructor_notes'
+        'student',
+        'instructor',
+        'course',
+        'vehicle',
+        'lesson_date',
+        'start',
+        'end',
+        'class_type',
+        'status',
+        'attended',
+        'lessons_deducted',
+        'is_recurring',
+        'recurring_pattern',
+        'recurring_end_date',
+        'notes',
+        'instructor_notes'
     ];
 
     protected $casts = [
-        'start' => 'datetime',
-        'end' => 'datetime',
+        'lesson_date' => 'datetime',
+        'start_time' => 'datetime:H:i:s',
+        'end_time' => 'datetime:H:i:s',
         'attended' => 'boolean',
-        'is_recurring' => 'boolean',
         'lessons_deducted' => 'integer',
+        'is_recurring' => 'boolean',
         'recurring_end_date' => 'date',
     ];
 
     // Relationships
-    public function student()
+    public function studentUser()
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(User::class, 'student');
     }
 
-    public function instructor()
+    public function instructorUser()
     {
-        return $this->belongsTo(User::class, 'instructor_id');
+        return $this->belongsTo(User::class, 'instructor');
     }
 
-    public function course()
+    public function courseInfo()
     {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(Course::class, 'course');
     }
 
-    public function vehicle()
+    public function vehicleInfo()
     {
-        return $this->belongsTo(Fleet::class, 'car_id');
+        return $this->belongsTo(Fleet::class, 'vehicle');
+    }
+
+    public function billingRecords()
+    {
+        return $this->hasMany(BillingRecord::class, 'scheduleId');
     }
 
     // Scopes
     public function scopeUpcoming($query)
     {
-        return $query->where('start', '>', now());
+        return $query->where('lesson_date', '>', now());
     }
 
     public function scopeToday($query)
     {
-        return $query->whereDate('start', today());
+        return $query->whereDate('lesson_date', today());
     }
 
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    public function scopeAttended($query)
+    {
+        return $query->where('attended', true);
     }
 }

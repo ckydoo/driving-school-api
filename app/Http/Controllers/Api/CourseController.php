@@ -41,11 +41,7 @@ class CourseController extends BaseController
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:courses',
-            'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'lessons' => 'required|integer|min:1',
-            'type' => 'required|in:practical,theory,combined',
-            'duration_minutes' => 'required|integer|min:1',
         ]);
 
         if ($validator->fails()) {
@@ -78,12 +74,8 @@ class CourseController extends BaseController
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255|unique:courses,name,' . $id,
-            'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
-            'lessons' => 'sometimes|required|integer|min:1',
-            'type' => 'sometimes|required|in:practical,theory,combined',
             'status' => 'sometimes|required|in:active,inactive',
-            'duration_minutes' => 'sometimes|required|integer|min:1',
         ]);
 
         if ($validator->fails()) {

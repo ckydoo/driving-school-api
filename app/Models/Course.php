@@ -1,3 +1,4 @@
+
 <?php
 // app/Models/Course.php
 
@@ -11,25 +12,24 @@ class Course extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'description', 'price', 'lessons', 'type',
-        'status', 'requirements', 'duration_minutes'
+        'name',
+        'price',
+        'status',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
-        'requirements' => 'array',
-        'duration_minutes' => 'integer',
     ];
 
     // Relationships
     public function schedules()
     {
-        return $this->hasMany(Schedule::class);
+        return $this->hasMany(Schedule::class, 'course');
     }
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class);
+        return $this->hasMany(Invoice::class, 'course');
     }
 
     // Scopes

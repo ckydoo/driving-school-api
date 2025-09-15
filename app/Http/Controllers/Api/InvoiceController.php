@@ -15,10 +15,6 @@ class InvoiceController extends BaseController
     {
         $query = Invoice::with(['student', 'course', 'payments']);
 
-        // Filter by student
-        if ($request->has('student_id')) {
-            $query->where('student_id', $request->student_id);
-        }
 
         // Filter by status
         if ($request->has('status')) {
@@ -42,8 +38,8 @@ class InvoiceController extends BaseController
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'student_id' => 'required|exists:users,id',
-            'course_id' => 'required|exists:courses,id',
+            'student' => 'required|exists:users,id',
+            'course' => 'required|exists:courses,id',
             'lessons' => 'required|integer|min:1',
             'price_per_lesson' => 'required|numeric|min:0',
             'due_date' => 'required|date|after:today',
@@ -60,8 +56,8 @@ class InvoiceController extends BaseController
 
         $invoice = Invoice::create([
             'invoice_number' => $invoiceNumber,
-            'student_id' => $request->student_id,
-            'course_id' => $request->course_id,
+            'student' => $request->student,
+            'course' => $request->course,
             'lessons' => $request->lessons,
             'price_per_lesson' => $request->price_per_lesson,
             'total_amount' => $totalAmount,

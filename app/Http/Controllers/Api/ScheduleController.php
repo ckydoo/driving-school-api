@@ -15,13 +15,13 @@ class ScheduleController extends BaseController
         $query = Schedule::with(['student', 'instructor', 'course', 'vehicle']);
 
         // Filter by student
-        if ($request->has('student_id')) {
-            $query->where('student_id', $request->student_id);
+        if ($request->has('student')) {
+            $query->where('student', $request->student);
         }
 
         // Filter by instructor
-        if ($request->has('instructor_id')) {
-            $query->where('instructor_id', $request->instructor_id);
+        if ($request->has('instructor')) {
+            $query->where('instructor', $request->instructor_id);
         }
 
         // Filter by date range
@@ -46,10 +46,10 @@ class ScheduleController extends BaseController
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'student_id' => 'required|exists:users,id',
-            'instructor_id' => 'required|exists:users,id',
+            'student' => 'required|exists:users,id',
+            'instructor' => 'required|exists:users,id',
             'course_id' => 'required|exists:courses,id',
-            'car_id' => 'nullable|exists:fleet,id',
+            'car' => 'nullable|exists:fleet,id',
             'start' => 'required|date',
             'end' => 'required|date|after:start',
             'class_type' => 'required|in:practical,theory',
@@ -103,10 +103,10 @@ class ScheduleController extends BaseController
         }
 
         $validator = Validator::make($request->all(), [
-            'student_id' => 'sometimes|required|exists:users,id',
-            'instructor_id' => 'sometimes|required|exists:users,id',
+            'student' => 'sometimes|required|exists:users,id',
+            'instructor' => 'sometimes|required|exists:users,id',
             'course_id' => 'sometimes|required|exists:courses,id',
-            'car_id' => 'nullable|exists:fleet,id',
+            'car' => 'nullable|exists:fleet,id',
             'start' => 'sometimes|required|date',
             'end' => 'sometimes|required|date|after:start',
             'class_type' => 'sometimes|required|in:practical,theory',
@@ -120,7 +120,7 @@ class ScheduleController extends BaseController
         }
 
         $schedule->update($request->only([
-            'student_id', 'instructor_id', 'course_id', 'car_id',
+            'student', 'instructor', 'course_id', 'car',
             'start', 'end', 'class_type', 'status', 'attended',
             'lessons_deducted', 'notes', 'instructor_notes'
         ]));

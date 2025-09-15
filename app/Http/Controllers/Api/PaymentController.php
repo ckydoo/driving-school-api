@@ -15,14 +15,11 @@ class PaymentController extends BaseController
     {
         $query = Payment::with(['invoice', 'student']);
 
-        // Filter by student
-        if ($request->has('student_id')) {
-            $query->where('student_id', $request->student_id);
-        }
+    
 
         // Filter by invoice
-        if ($request->has('invoice_id')) {
-            $query->where('invoice_id', $request->invoice_id);
+        if ($request->has('invoiceId')) {
+            $query->where('invoiceId', $request->invoiceId);
         }
 
         // Filter by payment method
@@ -47,7 +44,7 @@ class PaymentController extends BaseController
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'invoice_id' => 'required|exists:invoices,id',
+            'invoiceId' => 'required|exists:invoices,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,card,bank_transfer,other',
             'payment_date' => 'required|date',
@@ -71,7 +68,7 @@ class PaymentController extends BaseController
         try {
             // Create payment
             $payment = Payment::create([
-                'invoice_id' => $request->invoice_id,
+                'invoiceId' => $request->invoiceId,
                 'student_id' => $invoice->student_id,
                 'amount' => $request->amount,
                 'payment_method' => $request->payment_method,

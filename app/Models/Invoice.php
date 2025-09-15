@@ -1,3 +1,4 @@
+
 <?php
 // app/Models/Invoice.php
 
@@ -11,44 +12,65 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
-        'invoice_number', 'student_id', 'course_id', 'lessons',
-        'price_per_lesson', 'total_amount', 'amount_paid',
-        'due_date', 'status', 'notes'
+        'student',
+        'course',
+        'lessons',
+        'price_per_lesson',
+        'amountpaid',
+        'due_date',
+        'courseName',
+        'status',
+        'total_amount',
+        'used_lessons',
+        'invoice_number'
     ];
 
     protected $casts = [
+        'student' => 'integer',
+        'course' => 'integer',
         'lessons' => 'integer',
         'price_per_lesson' => 'decimal:2',
+        'amountpaid' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'amount_paid' => 'decimal:2',
-        'due_date' => 'date',
+        'used_lessons' => 'integer',
+        'due_date' => 'datetime',
     ];
 
     // Relationships
-    public function student()
+    public function studentUser()
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(User::class, 'student');
     }
 
-    public function course()
+    public function courseInfo()
     {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(Course::class, 'course');
     }
 
     public function payments()
     {
-        return $this->hasMany(Payment::class);
+        return $this->hasMany(Payment::class, 'invoiceId');
+    }
+
+    public function billingRecords()
+    {
+        return $this->hasMany(BillingRecord::class, 'invoiceId');
     }
 
     // Accessors
     public function getBalanceAttribute()
     {
-        return $this->total_amount - $this->amount_paid;
+        return $this->total_amount - $this->amountpaid;
     }
 
     public function getIsOverdueAttribute()
     {
         return $this->balance > 0 && $this->due_date->isPast();
+    }
+
+    public function getRemainingLessonsAttribute()
+    {
+        return $this->lessons - $this->used_lessons;
     }
 
     // Scopes

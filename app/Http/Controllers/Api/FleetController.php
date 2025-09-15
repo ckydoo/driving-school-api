@@ -18,10 +18,6 @@ class FleetController extends BaseController
             $query->where('status', $request->status);
         }
 
-        // Filter by transmission
-        if ($request->has('transmission')) {
-            $query->where('transmission', $request->transmission);
-        }
 
         // Search functionality
         if ($request->has('search')) {
@@ -29,7 +25,7 @@ class FleetController extends BaseController
             $query->where(function($q) use ($search) {
                 $q->where('make', 'like', "%{$search}%")
                   ->orWhere('model', 'like', "%{$search}%")
-                  ->orWhere('registration', 'like', "%{$search}%");
+                  ->orWhere('carplate', 'like', "%{$search}%");
             });
         }
 
@@ -43,13 +39,9 @@ class FleetController extends BaseController
         $validator = Validator::make($request->all(), [
             'make' => 'required|string|max:255',
             'model' => 'required|string|max:255',
-            'registration' => 'required|string|max:255|unique:fleet',
+            'carplate' => 'required|string|max:255|unique:fleet',
             'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
-            'transmission' => 'required|in:manual,automatic',
             'assigned_instructor_id' => 'nullable|exists:users,id',
-            'insurance_expiry' => 'nullable|date|after:today',
-            'mot_expiry' => 'nullable|date|after:today',
-            'mileage' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -84,14 +76,10 @@ class FleetController extends BaseController
         $validator = Validator::make($request->all(), [
             'make' => 'sometimes|required|string|max:255',
             'model' => 'sometimes|required|string|max:255',
-            'registration' => 'sometimes|required|string|max:255|unique:fleet,registration,' . $id,
+            'carplate' => 'sometimes|required|string|max:255|unique:fleet,carplate,' . $id,
             'year' => 'sometimes|required|integer|min:1900|max:' . (date('Y') + 1),
-            'transmission' => 'sometimes|required|in:manual,automatic',
             'status' => 'sometimes|required|in:available,in_use,maintenance,out_of_service',
             'assigned_instructor_id' => 'nullable|exists:users,id',
-            'insurance_expiry' => 'nullable|date',
-            'mot_expiry' => 'nullable|date',
-            'mileage' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -99,8 +87,8 @@ class FleetController extends BaseController
         }
 
         $vehicle->update($request->only([
-            'make', 'model', 'registration', 'year', 'transmission', 'status',
-            'assigned_instructor_id', 'insurance_expiry', 'mot_expiry', 'mileage', 'notes'
+            'make', 'model', 'carplate', 'year', 'status',
+            'assigned_instructor_id', 'notes'
         ]));
 
         $vehicle->load('assignedInstructor');

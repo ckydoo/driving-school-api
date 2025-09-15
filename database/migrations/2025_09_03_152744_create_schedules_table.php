@@ -1,9 +1,11 @@
-<?php
-// database/migrations/2025_09_03_152739_create_schedules_table.php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
+<?php
+// database/migrations/2025_09_15_000003_create_schedules_table.php
+
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
 {
@@ -11,14 +13,15 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('instructor_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('course_id')->constrained('courses')->onDelete('cascade');
-            $table->foreignId('car_id')->nullable()->constrained('fleet')->onDelete('set null');
-            $table->datetime('start');
-            $table->datetime('end');
-            $table->enum('class_type', ['practical', 'theory'])->default('practical');
-            $table->enum('status', ['scheduled', 'completed', 'cancelled', 'no_show'])->default('scheduled');
+            $table->unsignedBigInteger('student');
+            $table->unsignedBigInteger('instructor');
+            $table->unsignedBigInteger('course');
+            $table->unsignedBigInteger('vehicle')->nullable();
+            $table->dateTime('lesson_date');
+            $table->time('start');
+            $table->time('end');
+            $table->string('class_type'); // practical, theory
+            $table->string('status')->default('scheduled');
             $table->boolean('attended')->default(false);
             $table->integer('lessons_deducted')->default(1);
             $table->boolean('is_recurring')->default(false);
@@ -26,11 +29,18 @@ return new class extends Migration
             $table->date('recurring_end_date')->nullable();
             $table->text('notes')->nullable();
             $table->text('instructor_notes')->nullable();
-            $table->timestamps();
+            $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
+            $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP'));
 
-            $table->index(['student_id', 'start']);
-            $table->index(['instructor_id', 'start']);
-            $table->index(['status', 'start']);
+            // Foreign keys
+            $table->foreign('student')->references('id')->on('users');
+            $table->foreign('instructor')->references('id')->on('users');
+            $table->foreign('course')->references('id')->on('courses');
+            $table->foreign('vehicle')->references('id')->on('fleet');
+
+            // Indexes
+            $table->index(['lesson_date', 'status']);
+            $table->index(['student', 'status']);
         });
     }
 
