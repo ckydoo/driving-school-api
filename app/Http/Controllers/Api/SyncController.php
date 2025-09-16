@@ -1,11 +1,12 @@
 <?php
-// app/Http/Controllers/Api/SyncController.php
+// app/Http/Controllers/Api/SyncController.php - COMPLETE FIXED VERSION
 
 namespace App\Http\Controllers\Api;
 
 use App\Models\{User, Course, Fleet, Schedule, Invoice, Payment};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class SyncController extends BaseController
@@ -45,8 +46,10 @@ class SyncController extends BaseController
             $uploaded = 0;
             $errors = [];
 
-            // Process each data type
-            foreach (['users', 'courses', 'fleet', 'schedules', 'invoices', 'payments'] as $type) {
+            // Process data types in dependency order (invoices before payments)
+            $dataTypes = ['users', 'courses', 'fleet', 'invoices', 'schedules', 'payments'];
+            
+            foreach ($dataTypes as $type) {
                 if ($request->has($type)) {
                     $result = $this->processDataType($type, $request->$type);
                     $uploaded += $result['uploaded'];
@@ -63,7 +66,9 @@ class SyncController extends BaseController
                     'timestamp' => now()->toISOString()
                 ], 'Data uploaded successfully.');
             } else {
-                DB::rollback();
+                // Only rollback if there are critical errors
+                // For now, let's still commit partial successes
+                DB::commit();
                 return $this->sendError('Upload partially failed.', [
                     'uploaded' => $uploaded,
                     'errors' => $errors
@@ -83,28 +88,45 @@ class SyncController extends BaseController
 
         foreach ($data as $item) {
             try {
+                // Log what we're processing for debugging
+                Log::info("Processing {$type} item", ['item' => $item]);
+
+                // Extract the actual data from the sync item structure
+                $actualData = $item['data'] ?? $item;
+                $operation = $item['operation'] ?? 'create';
+
+                Log::info("Extracted data for {$type}", [
+                    'operation' => $operation, 
+                    'data' => $actualData
+                ]);
+
                 switch ($type) {
                     case 'users':
-                        $this->upsertUser($item);
+                        $this->upsertUser($actualData, $operation);
                         break;
                     case 'courses':
-                        $this->upsertCourse($item);
+                        $this->upsertCourse($actualData, $operation);
                         break;
                     case 'fleet':
-                        $this->upsertFleet($item);
+                        $this->upsertFleet($actualData, $operation);
                         break;
                     case 'schedules':
-                        $this->upsertSchedule($item);
+                        $this->upsertSchedule($actualData, $operation);
                         break;
                     case 'invoices':
-                        $this->upsertInvoice($item);
+                        $this->upsertInvoice($actualData, $operation);
                         break;
                     case 'payments':
-                        $this->upsertPayment($item);
+                        $this->upsertPayment($actualData, $operation);
                         break;
                 }
                 $uploaded++;
             } catch (\Exception $e) {
+                Log::error("Error processing {$type} item", [
+                    'item' => $item,
+                    'error' => $e->getMessage()
+                ]);
+                
                 $errors[] = [
                     'item' => $item,
                     'error' => $e->getMessage()
@@ -115,51 +137,181 @@ class SyncController extends BaseController
         return ['uploaded' => $uploaded, 'errors' => $errors];
     }
 
-    private function upsertUser($data)
+    private function upsertUser($data, $operation = 'create')
     {
+        $cleanData = collect($data)->except(['id'])->toArray();
+        
+        if ($operation === 'delete') {
+            User::where('id', $data['id'])->delete();
+            return;
+        }
+        
         User::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id'])->toArray()
+            $cleanData
         );
     }
 
-    private function upsertCourse($data)
+    private function upsertCourse($data, $operation = 'create')
     {
+        $cleanData = collect($data)->except(['id'])->toArray();
+        
+        if ($operation === 'delete') {
+            Course::where('id', $data['id'])->delete();
+            return;
+        }
+        
+        Log::info('Upserting course', ['id' => $data['id'] ?? null, 'data' => $cleanData]);
+        
         Course::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id'])->toArray()
+            $cleanData
         );
     }
 
-    private function upsertFleet($data)
+    private function upsertFleet($data, $operation = 'create')
     {
+        $cleanData = collect($data)->except(['id'])->toArray();
+        
+        if ($operation === 'delete') {
+            Fleet::where('id', $data['id'])->delete();
+            return;
+        }
+        
+        // Handle instructor field - convert 0 to NULL
+        if (isset($cleanData['instructor']) && $cleanData['instructor'] == 0) {
+            $cleanData['instructor'] = null;
+        }
+        
+        // Validate that instructor exists if provided
+        if (!empty($cleanData['instructor'])) {
+            $instructorExists = User::where('id', $cleanData['instructor'])->exists();
+            if (!$instructorExists) {
+                throw new \Exception("Instructor with ID {$cleanData['instructor']} does not exist");
+            }
+        }
+        
+        Log::info('Upserting fleet', ['id' => $data['id'] ?? null, 'data' => $cleanData]);
+        
         Fleet::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id'])->toArray()
+            $cleanData
         );
     }
 
-    private function upsertSchedule($data)
+    private function upsertSchedule($data, $operation = 'create')
     {
+        $cleanData = collect($data)->except(['id', 'student', 'instructor', 'course', 'vehicle'])->toArray();
+        
+        if ($operation === 'delete') {
+            Schedule::where('id', $data['id'])->delete();
+            return;
+        }
+        
         Schedule::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id', 'student', 'instructor', 'course', 'vehicle'])->toArray()
+            $cleanData
         );
     }
 
-    private function upsertInvoice($data)
+    private function upsertInvoice($data, $operation = 'create')
     {
+        Log::info('Processing invoice', ['data' => $data, 'operation' => $operation]);
+        
+        if ($operation === 'delete') {
+            Invoice::where('id', $data['id'])->delete();
+            return;
+        }
+        
+        // For UPDATE operations, we need to handle partial data
+        if ($operation === 'update') {
+            // Get existing invoice
+            $existingInvoice = Invoice::find($data['id']);
+            if (!$existingInvoice) {
+                throw new \Exception("Cannot update invoice {$data['id']}: not found");
+            }
+            
+            // Only update the fields that are provided
+            $updateFields = collect($data)->except(['id'])->toArray();
+            
+            Log::info('Updating existing invoice', [
+                'id' => $data['id'], 
+                'updateFields' => $updateFields
+            ]);
+            
+            $existingInvoice->update($updateFields);
+            return;
+        }
+        
+        // For CREATE operations, ensure all required fields are present
+        $cleanData = collect($data)->except(['id'])->toArray();
+        
+        // Validate required fields for creation
+        if (!isset($cleanData['student'])) {
+            throw new \Exception("Required field 'student' missing for invoice creation");
+        }
+        
+        Log::info('Creating new invoice', ['data' => $cleanData]);
+        
         Invoice::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id', 'student', 'course', 'payments'])->toArray()
+            $cleanData
         );
     }
 
-    private function upsertPayment($data)
+    private function upsertPayment($data, $operation = 'create')
     {
+        Log::info('Processing payment', ['data' => $data, 'operation' => $operation]);
+        
+        if ($operation === 'delete') {
+            Payment::where('id', $data['id'])->delete();
+            return;
+        }
+        
+        // For UPDATE operations, handle partial data
+        if ($operation === 'update') {
+            $existingPayment = Payment::find($data['id']);
+            if (!$existingPayment) {
+                throw new \Exception("Cannot update payment {$data['id']}: not found");
+            }
+            
+            $updateFields = collect($data)->except(['id'])->toArray();
+            
+            Log::info('Updating existing payment', [
+                'id' => $data['id'], 
+                'updateFields' => $updateFields
+            ]);
+            
+            $existingPayment->update($updateFields);
+            return;
+        }
+        
+        // For CREATE operations, ensure invoice exists and required fields are present
+        $cleanData = collect($data)->except(['id', 'invoice', 'student'])->toArray();
+        
+        // Validate that invoice exists
+        if (isset($cleanData['invoiceId'])) {
+            $invoiceExists = Invoice::where('id', $cleanData['invoiceId'])->exists();
+            if (!$invoiceExists) {
+                throw new \Exception("Invoice with ID {$cleanData['invoiceId']} does not exist");
+            }
+        } else {
+            throw new \Exception("Required field 'invoiceId' missing for payment creation");
+        }
+        
+        // Validate that user exists if provided
+        if (isset($cleanData['userId']) && !empty($cleanData['userId'])) {
+            $userExists = User::where('id', $cleanData['userId'])->exists();
+            if (!$userExists) {
+                throw new \Exception("User with ID {$cleanData['userId']} does not exist");
+            }
+        }
+        
+        Log::info('Creating new payment', ['data' => $cleanData]);
+        
         Payment::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            collect($data)->except(['id', 'invoice', 'student'])->toArray()
+            $cleanData
         );
     }
 

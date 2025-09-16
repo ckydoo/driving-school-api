@@ -1,5 +1,5 @@
 <?php
-// database/migrations/2025_09_15_000004_create_fleet_table.php
+// database/migrations/2025_09_03_152738_create_fleet_table.php - FIXED VERSION
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -16,11 +16,11 @@ return new class extends Migration
             $table->string('make');
             $table->string('model');
             $table->string('modelyear');
-            $table->unsignedBigInteger('instructor');
+            $table->unsignedBigInteger('instructor')->nullable(); // Allow NULL
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP'));
 
-            // Foreign key
+            // Foreign key - allows NULL values
             $table->foreign('instructor')->references('id')->on('users');
 
             // Indexes
