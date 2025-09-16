@@ -1,5 +1,5 @@
 <?php
-// app/Models/Invoice.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,73 +10,75 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
+        'invoice_number',
         'student',
         'course',
         'lessons',
         'price_per_lesson',
+        'total_amount',
         'amountpaid',
         'due_date',
-        'courseName',
         'status',
-        'total_amount',
-        'used_lessons',
-        'invoice_number'
+        'notes',
+        'created_at',
+        'updated_at'
     ];
 
     protected $casts = [
-        'student' => 'integer',
-        'course' => 'integer',
+        'due_date' => 'datetime',
         'lessons' => 'integer',
         'price_per_lesson' => 'decimal:2',
-        'amountpaid' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'used_lessons' => 'integer',
-        'due_date' => 'datetime',
+        'amountpaid' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
     ];
 
-    // Relationships
-    public function studentUser()
+    // ✅ Add this relationship - this is what was missing!
+    public function student()
     {
         return $this->belongsTo(User::class, 'student');
     }
 
-    public function courseInfo()
+    // ✅ Add course relationship if not already present
+    public function course()
     {
         return $this->belongsTo(Course::class, 'course');
     }
 
+    // ✅ Add payments relationship if not already present
     public function payments()
     {
         return $this->hasMany(Payment::class, 'invoiceId');
     }
 
-
-
-    // Accessors
-    public function getBalanceAttribute()
+    // Helper methods
+    public function getRemainingBalanceAttribute()
     {
         return $this->total_amount - $this->amountpaid;
     }
 
-    public function getIsOverdueAttribute()
+    public function getStatusAttribute($value)
     {
-        return $this->balance > 0 && $this->due_date->isPast();
+        return $value ?: 'unpaid';
     }
 
-    public function getRemainingLessonsAttribute()
+    public function setStatusAttribute($value)
     {
-        return $this->lessons - $this->used_lessons;
+        $this->attributes['status'] = $value;
     }
 
-    // Scopes
-    public function scopeUnpaid($query)
+    // Automatically update status based on payment amount
+    public function updateStatus()
     {
-        return $query->where('status', '!=', 'paid');
-    }
-
-    public function scopeOverdue($query)
-    {
-        return $query->where('due_date', '<', now())
-                    ->where('status', '!=', 'paid');
+        if ($this->amountpaid >= $this->total_amount) {
+            $this->status = 'paid';
+        } elseif ($this->amountpaid > 0) {
+            $this->status = 'partial';
+        } else {
+            $this->status = 'unpaid';
+        }
+        
+        $this->save();
     }
 }

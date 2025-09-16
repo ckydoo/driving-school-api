@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class SyncController extends BaseController
 {
-    public function download(Request $request)
+   public function download(Request $request)
     {
         try {
             $lastSync = $request->header('Last-Sync')
@@ -26,7 +26,8 @@ class SyncController extends BaseController
                     ->where('updated_at', '>', $lastSync)->get(),
                 'invoices' => Invoice::with(['student', 'course', 'payments'])
                     ->where('updated_at', '>', $lastSync)->get(),
-                'payments' => Payment::with(['invoice', 'student'])
+                // ✅ FIXED: Remove 'student' from Payment relationships since it doesn't exist
+                'payments' => Payment::with(['invoice', 'user'])
                     ->where('updated_at', '>', $lastSync)->get(),
                 'sync_timestamp' => now()->toISOString(),
             ];
@@ -37,6 +38,7 @@ class SyncController extends BaseController
             return $this->sendError('Sync failed.', ['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function upload(Request $request)
     {
@@ -320,25 +322,141 @@ private function upsertFleet($data, $operation = 'create')
 
 private function upsertSchedule($data, $operation = 'create')
 {
+    Log::info('Processing schedule', ['data' => $data, 'operation' => $operation]);
+    
     if ($operation === 'delete') {
         Schedule::where('id', $data['id'])->delete();
         return;
     }
     
-    $cleanData = collect($data)->except(['id', 'student', 'instructor', 'course', 'vehicle'])->toArray();
+    // Map Flutter field names to Laravel database field names
+    $mappedData = $this->mapScheduleFields($data);
     
+    // For UPDATE operations, check if record exists and fallback to CREATE
     if ($operation === 'update') {
-        $updated = Schedule::where('id', $data['id'])->update($cleanData);
-        if ($updated === 0) {
-            Schedule::create(array_merge($cleanData, ['id' => $data['id']]));
+        $existingSchedule = Schedule::find($data['id']);
+        
+        if (!$existingSchedule) {
+            // Schedule doesn't exist on server, treat as CREATE instead
+            Log::info("Schedule {$data['id']} not found for update, creating instead");
+            $operation = 'create';
+        } else {
+            // Update existing schedule
+            Log::info('Updating existing schedule', [
+                'id' => $data['id'], 
+                'updateFields' => $mappedData
+            ]);
+            
+            $existingSchedule->update($mappedData);
+            return;
         }
-        return;
     }
     
-    Schedule::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
+    // For CREATE operations (including fallback from failed UPDATE)
+    if ($operation === 'create') {
+        // Validate required fields
+        $requiredFields = ['student', 'instructor', 'course', 'start', 'end'];
+        foreach ($requiredFields as $field) {
+            if (!isset($mappedData[$field])) {
+                throw new \Exception("Required field '$field' missing for schedule creation");
+            }
+        }
+        
+        // Validate foreign keys exist
+        if (!User::where('id', $mappedData['student'])->exists()) {
+            throw new \Exception("Student with ID {$mappedData['student']} does not exist");
+        }
+        
+        if (!User::where('id', $mappedData['instructor'])->exists()) {
+            throw new \Exception("Instructor with ID {$mappedData['instructor']} does not exist");
+        }
+        
+        if (!Course::where('id', $mappedData['course'])->exists()) {
+            throw new \Exception("Course with ID {$mappedData['course']} does not exist");
+        }
+        
+        // Vehicle is optional, but validate if provided
+        if (!empty($mappedData['vehicle']) && $mappedData['vehicle'] != 0) {
+            if (!Fleet::where('id', $mappedData['vehicle'])->exists()) {
+                throw new \Exception("Vehicle with ID {$mappedData['vehicle']} does not exist");
+            }
+        }
+        
+        Log::info('Creating new schedule', ['data' => $mappedData]);
+        
+        // For local records being synced to server, let the server assign new ID
+        $createData = $mappedData;
+        unset($createData['id']); // Remove local ID, let server assign new one
+        
+        $newSchedule = Schedule::create($createData);
+        
+        Log::info('Schedule created successfully', [
+            'local_id' => $data['id'] ?? null,
+            'server_id' => $newSchedule->id
+        ]);
+    }
+}
+
+/**
+ * Map Flutter field names to Laravel database field names
+ */
+private function mapScheduleFields($data)
+{
+    $cleanData = collect($data)->except(['id'])->toArray();
+    
+    // Map Flutter field names to database field names
+    $fieldMapping = [
+        'student' => 'student',           // Maps to 'student' column
+        'instructor' => 'instructor',     // Maps to 'instructor' column  
+        'course' => 'course',             // Maps to 'course' column
+        'car' => 'vehicle',               // Maps to 'vehicle' column
+        'class_type' => 'class_type',
+        'status' => 'status',
+        'start' => 'start',
+        'end' => 'end',
+        'attended' => 'attended',
+        'lessonsCompleted' => 'lessons_completed',
+        'lessonsDeducted' => 'lessons_deducted',
+        'is_recurring' => 'is_recurring',
+        'recurrence_pattern' => 'recurring_pattern',
+        'recurrence_end_date' => 'recurring_end_date',
+        'notes' => 'notes',
+    ];
+    
+    $mappedData = [];
+    
+    foreach ($fieldMapping as $flutterField => $dbField) {
+        if (isset($cleanData[$flutterField])) {
+            $mappedData[$dbField] = $cleanData[$flutterField];
+        }
+    }
+    
+    // Handle special cases
+    if (isset($mappedData['attended'])) {
+        $mappedData['attended'] = $mappedData['attended'] ? 1 : 0;
+    }
+    
+    if (isset($mappedData['is_recurring'])) {
+        $mappedData['is_recurring'] = $mappedData['is_recurring'] ? 1 : 0;
+    }
+    
+    // Set defaults for required fields if not provided
+    $mappedData['status'] = $mappedData['status'] ?? 'scheduled';
+    $mappedData['attended'] = $mappedData['attended'] ?? 0;
+    $mappedData['lessons_deducted'] = $mappedData['lessons_deducted'] ?? 1;
+    $mappedData['is_recurring'] = $mappedData['is_recurring'] ?? 0;
+    
+    // Handle vehicle field - convert 0 to NULL
+    if (isset($mappedData['vehicle']) && $mappedData['vehicle'] == 0) {
+        $mappedData['vehicle'] = null;
+    }
+    
+    // Ensure status is in correct format for database
+    if (isset($mappedData['status'])) {
+        $mappedData['status'] = strtolower($mappedData['status']);
+    }
+    
+    return $mappedData;
 }
 
     public function status()

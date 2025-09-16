@@ -9,25 +9,24 @@ class Schedule extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'student',
-        'instructor',
-        'course',
-        'vehicle',
-        'lesson_date',
-        'start',
-        'end',
-        'class_type',
-        'status',
-        'attended',
-        'lessons_deducted',
-        'is_recurring',
-        'recurring_pattern',
-        'recurring_end_date',
-        'notes',
-        'instructor_notes'
-    ];
-
+   protected $fillable = [
+    'student',
+    'instructor', 
+    'course',
+    'vehicle',
+    'start',
+    'end',
+    'class_type',
+    'status',
+    'attended',
+    'lessons_completed',
+    'lessons_deducted',
+    'is_recurring',
+    'recurring_pattern',
+    'recurring_end_date',
+    'notes',
+    'instructor_notes',
+];
     protected $casts = [
         'lesson_date' => 'datetime',
         'start_time' => 'datetime:H:i:s',
@@ -39,25 +38,25 @@ class Schedule extends Model
     ];
 
     // Relationships
-    public function studentUser()
-    {
-        return $this->belongsTo(User::class, 'student');
-    }
+public function student()  // was studentUser()
+{
+    return $this->belongsTo(User::class, 'student');
+}
 
-    public function instructorUser()
-    {
-        return $this->belongsTo(User::class, 'instructor');
-    }
+public function instructor()  // was instructorUser()
+{
+    return $this->belongsTo(User::class, 'instructor');
+}
 
-    public function courseInfo()
-    {
-        return $this->belongsTo(Course::class, 'course');
-    }
+public function course()  // was courseInfo()
+{
+    return $this->belongsTo(Course::class, 'course');
+}
 
-    public function vehicleInfo()
-    {
-        return $this->belongsTo(Fleet::class, 'vehicle');
-    }
+public function vehicle()  // was vehicleInfo()
+{
+    return $this->belongsTo(Fleet::class, 'vehicle');
+}
 
 
     // Scopes

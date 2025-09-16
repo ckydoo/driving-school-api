@@ -1,8 +1,5 @@
-
 <?php
-// database/migrations/2025_09_15_000003_create_schedules_table.php
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -13,34 +10,46 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
+            
+            // Foreign key fields - must match the field names used in upsertSchedule
             $table->unsignedBigInteger('student');
-            $table->unsignedBigInteger('instructor');
+            $table->unsignedBigInteger('instructor'); 
             $table->unsignedBigInteger('course');
-            $table->unsignedBigInteger('vehicle')->nullable();
-            $table->dateTime('lesson_date');
-            $table->time('start');
-            $table->time('end');
-            $table->string('class_type'); // practical, theory
+            $table->unsignedBigInteger('car')->nullable();
+            
+            // Schedule details
+            $table->datetime('start');
+            $table->datetime('end');
+            $table->string('class_type')->default('Practical');
             $table->string('status')->default('scheduled');
+            
+            // Lesson tracking
             $table->boolean('attended')->default(false);
+            $table->integer('lessons_completed')->default(0);
             $table->integer('lessons_deducted')->default(1);
+            
+            
+            // Recurring schedule options
             $table->boolean('is_recurring')->default(false);
             $table->string('recurring_pattern')->nullable();
             $table->date('recurring_end_date')->nullable();
+            
+            // Additional notes
             $table->text('notes')->nullable();
             $table->text('instructor_notes')->nullable();
-            $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
-            $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP'));
+            
+            $table->timestamps();
 
-            // Foreign keys
-            $table->foreign('student')->references('id')->on('users');
-            $table->foreign('instructor')->references('id')->on('users');
-            $table->foreign('course')->references('id')->on('courses');
-            $table->foreign('vehicle')->references('id')->on('fleet');
+            // Foreign key constraints
+            $table->foreign('student')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('instructor')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('course')->references('id')->on('courses')->onDelete('cascade');
+            $table->foreign('vehicle')->references('id')->on('fleet')->onDelete('set null');
 
-            // Indexes
-            $table->index(['lesson_date', 'status']);
+            // Indexes for performance
             $table->index(['student', 'status']);
+            $table->index(['instructor', 'start']);
+            $table->index(['start', 'end']);
         });
     }
 

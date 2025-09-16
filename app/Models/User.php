@@ -14,7 +14,6 @@ class User extends Authenticatable
     protected $fillable = [
         'fname', 'lname', 'email', 'password', 'date_of_birth',
         'role', 'status', 'gender', 'phone', 'address', 'idnumber',
-        'profile_picture'
     ];
 
     protected $hidden = [
@@ -31,27 +30,27 @@ class User extends Authenticatable
     // Relationships
     public function studentSchedules()
     {
-        return $this->hasMany(Schedule::class, 'student_id');
+        return $this->hasMany(Schedule::class, 'student');
     }
 
     public function instructorSchedules()
     {
-        return $this->hasMany(Schedule::class, 'instructor_id');
+        return $this->hasMany(Schedule::class, 'instructor');
     }
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'student_id');
+        return $this->hasMany(Invoice::class, 'student');
     }
 
     public function payments()
     {
-        return $this->hasMany(Payment::class, 'student_id');
+        return $this->hasMany(Payment::class, 'student');
     }
 
     public function assignedVehicles()
     {
-        return $this->hasMany(Fleet::class, 'assigned_instructor_id');
+        return $this->hasMany(Fleet::class, 'assigned_instructor');
     }
 
     // Scopes
