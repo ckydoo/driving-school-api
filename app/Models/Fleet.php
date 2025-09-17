@@ -1,5 +1,5 @@
 <?php
-// app/Models/Fleet.php
+// app/Models/Fleet.php - CORRECTED VERSION
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,11 +11,13 @@ class Fleet extends Model
 
     protected $table = 'fleet';
 
+    // ✅ FIXED: Added missing 'status' field to fillable array
     protected $fillable = [
         'carplate',
         'make',
         'model',
         'modelyear',
+        'status',        // ✅ This was missing!
         'school_id',
         'instructor'
     ];

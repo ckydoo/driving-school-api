@@ -261,17 +261,18 @@ class SyncController extends BaseController
             return;
         }
 
+        // ✅ CORRECTED: Map client fields to correct database fields
         Fleet::updateOrCreate(
             ['id' => $data['id']],
             [
                 'make' => $data['make'],
                 'model' => $data['model'],
-                'year' => $data['year'] ?? date('Y'),
-                'license_plate' => $data['license_plate'] ?? '',
+                'modelyear' => $data['modelyear'] ?? $data['year'] ?? date('Y'), // ✅ Fixed field name
+                'carplate' => $data['carplate'] ?? $data['carPlate'] ?? '', // ✅ Fixed field name
                 'status' => $data['status'] ?? 'available',
-                'transmission' => $data['transmission'] ?? 'manual',
-                'fuel_type' => $data['fuel_type'] ?? 'petrol',
-                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+                'instructor' => $data['instructor'], // ✅ This was already correct
+                'school_id' => $data['school_id'],
+                // ❌ REMOVED: transmission and fuel_type (these fields don't exist in the schema)
             ]
         );
     }
