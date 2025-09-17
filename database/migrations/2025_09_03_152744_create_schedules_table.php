@@ -44,7 +44,7 @@ return new class extends Migration
             $table->foreign('student')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('instructor')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('course')->references('id')->on('courses')->onDelete('cascade');
-            $table->foreign('vehicle')->references('id')->on('fleet')->onDelete('set null');
+            $table->foreign('car')->references('id')->on('fleet')->onDelete('set null');
 
             // Indexes for performance
             $table->index(['student', 'status']);

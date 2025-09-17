@@ -13,7 +13,7 @@ class Schedule extends Model
     'student',
     'instructor', 
     'course',
-    'vehicle',
+    'car',
     'start',
     'end',
     'class_type',
