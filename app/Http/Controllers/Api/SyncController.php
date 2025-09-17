@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/Api/SyncController.php - COMPLETE FIXED VERSION
+// app/Http/Controllers/Api/SyncController.php - FIXED WITH SCHOOL FILTERING
 
 namespace App\Http\Controllers\Api;
 
@@ -11,49 +11,110 @@ use Carbon\Carbon;
 
 class SyncController extends BaseController
 {
-   public function download(Request $request)
+    public function download(Request $request)
     {
         try {
+            // Get the authenticated user and their school
+            $currentUser = auth()->user();
+            $schoolId = $currentUser->school_id;
+
+            Log::info('Sync download request', [
+                'user_id' => $currentUser->id,
+                'user_email' => $currentUser->email,
+                'school_id' => $schoolId
+            ]);
+
+            if (!$schoolId) {
+                return $this->sendError('User does not belong to any school.', [], 400);
+            }
+
             $lastSync = $request->header('Last-Sync')
                 ? Carbon::parse($request->header('Last-Sync'))
                 : Carbon::now()->subYears(10); // Get all data if no last sync
 
+            // ✅ FILTER ALL DATA BY SCHOOL_ID
             $data = [
-                'users' => User::where('updated_at', '>', $lastSync)->get(),
-                'courses' => Course::where('updated_at', '>', $lastSync)->get(),
-                'fleet' => Fleet::where('updated_at', '>', $lastSync)->get(),
+                'users' => User::where('school_id', $schoolId)
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
+                'courses' => Course::where('school_id', $schoolId)
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
+                'fleet' => Fleet::where('school_id', $schoolId)
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
                 'schedules' => Schedule::with(['student', 'instructor', 'course', 'vehicle'])
-                    ->where('updated_at', '>', $lastSync)->get(),
+                    ->where('school_id', $schoolId)
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
                 'invoices' => Invoice::with(['student', 'course', 'payments'])
-                    ->where('updated_at', '>', $lastSync)->get(),
-                // ✅ FIXED: Remove 'student' from Payment relationships since it doesn't exist
+                    ->where('school_id', $schoolId)
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
                 'payments' => Payment::with(['invoice', 'user'])
-                    ->where('updated_at', '>', $lastSync)->get(),
+                    ->whereHas('user', function($query) use ($schoolId) {
+                        $query->where('school_id', $schoolId);
+                    })
+                    ->where('updated_at', '>', $lastSync)
+                    ->get(),
+                    
                 'sync_timestamp' => now()->toISOString(),
             ];
+
+            Log::info('Sync download response', [
+                'school_id' => $schoolId,
+                'users_count' => count($data['users']),
+                'courses_count' => count($data['courses']),
+                'fleet_count' => count($data['fleet']),
+                'schedules_count' => count($data['schedules']),
+                'invoices_count' => count($data['invoices']),
+                'payments_count' => count($data['payments']),
+            ]);
 
             return $this->sendResponse($data, 'Data synchronized successfully.');
 
         } catch (\Exception $e) {
+            Log::error('Sync download failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return $this->sendError('Sync failed.', ['error' => $e->getMessage()], 500);
         }
     }
-
 
     public function upload(Request $request)
     {
         DB::beginTransaction();
 
         try {
+            $currentUser = auth()->user();
+            $schoolId = $currentUser->school_id;
+
+            Log::info('Sync upload request', [
+                'user_id' => $currentUser->id,
+                'school_id' => $schoolId,
+                'data_types' => array_keys($request->all())
+            ]);
+
+            if (!$schoolId) {
+                return $this->sendError('User does not belong to any school.', [], 400);
+            }
+
             $uploaded = 0;
             $errors = [];
 
-            // Process data types in dependency order (invoices before payments)
+            // Process data types in dependency order
             $dataTypes = ['users', 'courses', 'fleet', 'invoices', 'schedules', 'payments'];
             
             foreach ($dataTypes as $type) {
                 if ($request->has($type)) {
-                    $result = $this->processDataType($type, $request->$type);
+                    $result = $this->processDataType($type, $request->$type, $schoolId);
                     $uploaded += $result['uploaded'];
                     if (!empty($result['errors'])) {
                         $errors[$type] = $result['errors'];
@@ -68,9 +129,7 @@ class SyncController extends BaseController
                     'timestamp' => now()->toISOString()
                 ], 'Data uploaded successfully.');
             } else {
-                // Only rollback if there are critical errors
-                // For now, let's still commit partial successes
-                DB::commit();
+                DB::commit(); // Still commit partial successes
                 return $this->sendError('Upload partially failed.', [
                     'uploaded' => $uploaded,
                     'errors' => $errors
@@ -79,26 +138,33 @@ class SyncController extends BaseController
 
         } catch (\Exception $e) {
             DB::rollback();
+            Log::error('Sync upload failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return $this->sendError('Upload failed.', ['error' => $e->getMessage()], 500);
         }
     }
 
-    private function processDataType($type, $data)
+    private function processDataType($type, $data, $schoolId)
     {
         $uploaded = 0;
         $errors = [];
 
         foreach ($data as $item) {
             try {
-                // Log what we're processing for debugging
                 Log::info("Processing {$type} item", ['item' => $item]);
 
-                // Extract the actual data from the sync item structure
                 $actualData = $item['data'] ?? $item;
                 $operation = $item['operation'] ?? 'create';
 
+                // ✅ ENSURE SCHOOL_ID IS SET FOR ALL DATA
+                $actualData['school_id'] = $schoolId;
+
                 Log::info("Extracted data for {$type}", [
                     'operation' => $operation, 
+                    'school_id' => $schoolId,
                     'data' => $actualData
                 ]);
 
@@ -122,360 +188,184 @@ class SyncController extends BaseController
                         $this->upsertPayment($actualData, $operation);
                         break;
                 }
+
                 $uploaded++;
+
             } catch (\Exception $e) {
-                Log::error("Error processing {$type} item", [
-                    'item' => $item,
-                    'error' => $e->getMessage()
-                ]);
-                
                 $errors[] = [
                     'item' => $item,
                     'error' => $e->getMessage()
                 ];
+                Log::error("Failed to process {$type} item", [
+                    'item' => $item,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
 
-        return ['uploaded' => $uploaded, 'errors' => $errors];
+        return [
+            'uploaded' => $uploaded,
+            'errors' => $errors
+        ];
     }
 
-
-   private function upsertInvoice($data, $operation = 'create')
-{
-    Log::info('Processing invoice', ['data' => $data, 'operation' => $operation]);
-    
-    if ($operation === 'delete') {
-        Invoice::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    if ($operation === 'update') {
-        // For UPDATE: Only update existing records, don't create new ones
-        $updated = Invoice::where('id', $data['id'])
-            ->update(collect($data)->except(['id'])->toArray());
-        
-        if ($updated === 0) {
-            Log::warning("Invoice {$data['id']} not found for update - will attempt upsert");
-            // If record doesn't exist, we need all required fields to create it
-            // But since this is an UPDATE operation, we probably don't have them
-            // So we'll skip this operation
-            throw new \Exception("Cannot update invoice {$data['id']}: not found on server");
-        }
-        
-        Log::info("Successfully updated invoice {$data['id']}");
-        return;
-    }
-    
-    // For CREATE operations
-    $cleanData = collect($data)->except(['id'])->toArray();
-    
-    // Validate required fields for creation
-    if (!isset($cleanData['student'])) {
-        throw new \Exception("Required field 'student' missing for invoice creation");
-    }
-    
-    Log::info('Creating new invoice', ['data' => $cleanData]);
-    
-    // For CREATE, use updateOrCreate to handle potential ID conflicts
-    Invoice::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
-}
-
-private function upsertPayment($data, $operation = 'create')
-{
-    Log::info('Processing payment', ['data' => $data, 'operation' => $operation]);
-    
-    if ($operation === 'delete') {
-        Payment::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    if ($operation === 'update') {
-        // For UPDATE: Only update existing records, don't create new ones
-        $updated = Payment::where('id', $data['id'])
-            ->update(collect($data)->except(['id', 'invoice', 'student'])->toArray());
-        
-        if ($updated === 0) {
-            Log::warning("Payment {$data['id']} not found for update");
-            throw new \Exception("Cannot update payment {$data['id']}: not found on server");
-        }
-        
-        Log::info("Successfully updated payment {$data['id']}");
-        return;
-    }
-    
-    // For CREATE operations
-    $cleanData = collect($data)->except(['id', 'invoice', 'student'])->toArray();
-    
-    // Validate that invoice exists
-    if (isset($cleanData['invoiceId'])) {
-        $invoiceExists = Invoice::where('id', $cleanData['invoiceId'])->exists();
-        if (!$invoiceExists) {
-            throw new \Exception("Invoice with ID {$cleanData['invoiceId']} does not exist");
-        }
-    } else {
-        throw new \Exception("Required field 'invoiceId' missing for payment creation");
-    }
-    
-    // Validate that user exists if provided
-    if (isset($cleanData['userId']) && !empty($cleanData['userId'])) {
-        $userExists = User::where('id', $cleanData['userId'])->exists();
-        if (!$userExists) {
-            throw new \Exception("User with ID {$cleanData['userId']} does not exist");
-        }
-    }
-    
-    Log::info('Creating new payment', ['data' => $cleanData]);
-    
-    Payment::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
-}
-
-// Also fix the other upsert methods for consistency
-private function upsertUser($data, $operation = 'create')
-{
-    if ($operation === 'delete') {
-        User::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    $cleanData = collect($data)->except(['id'])->toArray();
-    
-    if ($operation === 'update') {
-        $updated = User::where('id', $data['id'])->update($cleanData);
-        if ($updated === 0) {
-            // For users, we might want to create if not exists
-            User::create(array_merge($cleanData, ['id' => $data['id']]));
-        }
-        return;
-    }
-    
-    // CREATE operation
-    User::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
-}
-
-private function upsertCourse($data, $operation = 'create')
-{
-    if ($operation === 'delete') {
-        Course::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    $cleanData = collect($data)->except(['id'])->toArray();
-    
-    if ($operation === 'update') {
-        $updated = Course::where('id', $data['id'])->update($cleanData);
-        if ($updated === 0) {
-            Course::create(array_merge($cleanData, ['id' => $data['id']]));
-        }
-        return;
-    }
-    
-    Course::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
-}
-
-private function upsertFleet($data, $operation = 'create')
-{
-    if ($operation === 'delete') {
-        Fleet::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    $cleanData = collect($data)->except(['id'])->toArray();
-    
-    // Handle instructor field - convert 0 to NULL
-    if (isset($cleanData['instructor']) && $cleanData['instructor'] == 0) {
-        $cleanData['instructor'] = null;
-    }
-    
-    // Validate that instructor exists if provided
-    if (!empty($cleanData['instructor'])) {
-        $instructorExists = User::where('id', $cleanData['instructor'])->exists();
-        if (!$instructorExists) {
-            throw new \Exception("Instructor with ID {$cleanData['instructor']} does not exist");
-        }
-    }
-    
-    if ($operation === 'update') {
-        $updated = Fleet::where('id', $data['id'])->update($cleanData);
-        if ($updated === 0) {
-            Fleet::create(array_merge($cleanData, ['id' => $data['id']]));
-        }
-        return;
-    }
-    
-    Fleet::updateOrCreate(
-        ['id' => $data['id'] ?? null],
-        $cleanData
-    );
-}
-
-private function upsertSchedule($data, $operation = 'create')
-{
-    Log::info('Processing schedule', ['data' => $data, 'operation' => $operation]);
-    
-    if ($operation === 'delete') {
-        Schedule::where('id', $data['id'])->delete();
-        return;
-    }
-    
-    // Map Flutter field names to Laravel database field names
-    $mappedData = $this->mapScheduleFields($data);
-    
-    // For UPDATE operations, check if record exists and fallback to CREATE
-    if ($operation === 'update') {
-        $existingSchedule = Schedule::find($data['id']);
-        
-        if (!$existingSchedule) {
-            // Schedule doesn't exist on server, treat as CREATE instead
-            Log::info("Schedule {$data['id']} not found for update, creating instead");
-            $operation = 'create';
-        } else {
-            // Update existing schedule
-            Log::info('Updating existing schedule', [
-                'id' => $data['id'], 
-                'updateFields' => $mappedData
-            ]);
-            
-            $existingSchedule->update($mappedData);
+    private function upsertUser($data, $operation)
+    {
+        if ($operation === 'delete') {
+            User::where('id', $data['id'])->delete();
             return;
         }
-    }
-    
-    // For CREATE operations (including fallback from failed UPDATE)
-    if ($operation === 'create') {
-        // Validate required fields
-        $requiredFields = ['student', 'instructor', 'course', 'start', 'end'];
-        foreach ($requiredFields as $field) {
-            if (!isset($mappedData[$field])) {
-                throw new \Exception("Required field '$field' missing for schedule creation");
-            }
-        }
-        
-        // Validate foreign keys exist
-        if (!User::where('id', $mappedData['student'])->exists()) {
-            throw new \Exception("Student with ID {$mappedData['student']} does not exist");
-        }
-        
-        if (!User::where('id', $mappedData['instructor'])->exists()) {
-            throw new \Exception("Instructor with ID {$mappedData['instructor']} does not exist");
-        }
-        
-        if (!Course::where('id', $mappedData['course'])->exists()) {
-            throw new \Exception("Course with ID {$mappedData['course']} does not exist");
-        }
-        
-        // Vehicle is optional, but validate if provided
-        if (!empty($mappedData['vehicle']) && $mappedData['vehicle'] != 0) {
-            if (!Fleet::where('id', $mappedData['vehicle'])->exists()) {
-                throw new \Exception("Vehicle with ID {$mappedData['vehicle']} does not exist");
-            }
-        }
-        
-        Log::info('Creating new schedule', ['data' => $mappedData]);
-        
-        // For local records being synced to server, let the server assign new ID
-        $createData = $mappedData;
-        unset($createData['id']); // Remove local ID, let server assign new one
-        
-        $newSchedule = Schedule::create($createData);
-        
-        Log::info('Schedule created successfully', [
-            'local_id' => $data['id'] ?? null,
-            'server_id' => $newSchedule->id
-        ]);
-    }
-}
 
-/**
- * Map Flutter field names to Laravel database field names
- */
-private function mapScheduleFields($data)
-{
-    $cleanData = collect($data)->except(['id'])->toArray();
-    
-    // Map Flutter field names to database field names
-    $fieldMapping = [
-        'student' => 'student',           // Maps to 'student' column
-        'instructor' => 'instructor',     // Maps to 'instructor' column  
-        'course' => 'course',             // Maps to 'course' column
-        'car' => 'vehicle',               // Maps to 'vehicle' column
-        'class_type' => 'class_type',
-        'status' => 'status',
-        'start' => 'start',
-        'end' => 'end',
-        'attended' => 'attended',
-        'lessonsCompleted' => 'lessons_completed',
-        'lessonsDeducted' => 'lessons_deducted',
-        'is_recurring' => 'is_recurring',
-        'recurrence_pattern' => 'recurring_pattern',
-        'recurrence_end_date' => 'recurring_end_date',
-        'notes' => 'notes',
-    ];
-    
-    $mappedData = [];
-    
-    foreach ($fieldMapping as $flutterField => $dbField) {
-        if (isset($cleanData[$flutterField])) {
-            $mappedData[$dbField] = $cleanData[$flutterField];
+        User::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'fname' => $data['fname'] ?? '',
+                'lname' => $data['lname'] ?? '',
+                'email' => $data['email'],
+                'role' => $data['role'],
+                'phone' => $data['phone'] ?? '',
+                'status' => $data['status'] ?? 'active',
+                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+                'date_of_birth' => $data['date_of_birth'] ?? '2000-01-01',
+                'gender' => $data['gender'] ?? 'other',
+                'address' => $data['address'] ?? '',
+                'idnumber' => $data['idnumber'] ?? null,
+            ]
+        );
+    }
+
+    private function upsertCourse($data, $operation)
+    {
+        if ($operation === 'delete') {
+            Course::where('id', $data['id'])->delete();
+            return;
         }
+
+        Course::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? '',
+                'duration_hours' => $data['duration_hours'] ?? 0,
+                'price' => $data['price'] ?? 0,
+                'status' => $data['status'] ?? 'active',
+                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+            ]
+        );
     }
-    
-    // Handle special cases
-    if (isset($mappedData['attended'])) {
-        $mappedData['attended'] = $mappedData['attended'] ? 1 : 0;
+
+    private function upsertFleet($data, $operation)
+    {
+        if ($operation === 'delete') {
+            Fleet::where('id', $data['id'])->delete();
+            return;
+        }
+
+        Fleet::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'make' => $data['make'],
+                'model' => $data['model'],
+                'year' => $data['year'] ?? date('Y'),
+                'license_plate' => $data['license_plate'] ?? '',
+                'status' => $data['status'] ?? 'available',
+                'transmission' => $data['transmission'] ?? 'manual',
+                'fuel_type' => $data['fuel_type'] ?? 'petrol',
+                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+            ]
+        );
     }
-    
-    if (isset($mappedData['is_recurring'])) {
-        $mappedData['is_recurring'] = $mappedData['is_recurring'] ? 1 : 0;
+
+    private function upsertSchedule($data, $operation)
+    {
+        if ($operation === 'delete') {
+            Schedule::where('id', $data['id'])->delete();
+            return;
+        }
+
+        Schedule::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'student' => $data['student_id'] ?? $data['student'],
+                'instructor' => $data['instructor_id'] ?? $data['instructor'],
+                'course' => $data['course_id'] ?? $data['course'],
+                'vehicle' => $data['vehicle_id'] ?? $data['car'],
+                'start' => $data['start'],
+                'end' => $data['end'],
+                'status' => $data['status'] ?? 'scheduled',
+                'class_type' => $data['class_type'] ?? 'Practical',
+                'notes' => $data['notes'] ?? '',
+                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+            ]
+        );
     }
-    
-    // Set defaults for required fields if not provided
-    $mappedData['status'] = $mappedData['status'] ?? 'scheduled';
-    $mappedData['attended'] = $mappedData['attended'] ?? 0;
-    $mappedData['lessons_deducted'] = $mappedData['lessons_deducted'] ?? 1;
-    $mappedData['is_recurring'] = $mappedData['is_recurring'] ?? 0;
-    
-    // Handle vehicle field - convert 0 to NULL
-    if (isset($mappedData['vehicle']) && $mappedData['vehicle'] == 0) {
-        $mappedData['vehicle'] = null;
+
+    private function upsertInvoice($data, $operation)
+    {
+        if ($operation === 'delete') {
+            Invoice::where('id', $data['id'])->delete();
+            return;
+        }
+
+        Invoice::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'student' => $data['student_id'] ?? $data['student'],
+                'course' => $data['course_id'] ?? $data['course'],
+                'total_amount' => $data['total_amount'] ?? $data['amount'],
+                'status' => $data['status'] ?? 'pending',
+                'due_date' => $data['due_date'] ?? null,
+                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
+            ]
+        );
     }
-    
-    // Ensure status is in correct format for database
-    if (isset($mappedData['status'])) {
-        $mappedData['status'] = strtolower($mappedData['status']);
+
+    private function upsertPayment($data, $operation)
+    {
+        if ($operation === 'delete') {
+            Payment::where('id', $data['id'])->delete();
+            return;
+        }
+
+        Payment::updateOrCreate(
+            ['id' => $data['id']],
+            [
+                'invoice_id' => $data['invoice_id'],
+                'student_id' => $data['student_id'],
+                'amount' => $data['amount'],
+                'payment_method' => $data['payment_method'] ?? 'cash',
+                'payment_date' => $data['payment_date'] ?? now(),
+                'status' => $data['status'] ?? 'completed',
+            ]
+        );
     }
-    
-    return $mappedData;
-}
 
     public function status()
     {
-        $stats = [
-            'users' => User::count(),
-            'courses' => Course::count(),
-            'fleet' => Fleet::count(),
-            'schedules' => Schedule::count(),
-            'invoices' => Invoice::count(),
-            'payments' => Payment::count(),
-            'last_activity' => [
-                'users' => User::latest('updated_at')->first()?->updated_at,
-                'schedules' => Schedule::latest('updated_at')->first()?->updated_at,
-                'payments' => Payment::latest('updated_at')->first()?->updated_at,
-            ],
-            'server_time' => now()->toISOString(),
-        ];
+        try {
+            $currentUser = auth()->user();
+            $schoolId = $currentUser->school_id;
 
-        return $this->sendResponse($stats, 'Sync status retrieved successfully.');
+            if (!$schoolId) {
+                return $this->sendError('User does not belong to any school.', [], 400);
+            }
+
+            $stats = [
+                'users' => User::where('school_id', $schoolId)->count(),
+                'courses' => Course::where('school_id', $schoolId)->count(),
+                'fleet' => Fleet::where('school_id', $schoolId)->count(),
+                'schedules' => Schedule::where('school_id', $schoolId)->count(),
+                'invoices' => Invoice::where('school_id', $schoolId)->count(),
+                'payments' => Payment::whereHas('user', function($query) use ($schoolId) {
+                    $query->where('school_id', $schoolId);
+                })->count(),
+                'last_sync' => now()->toISOString(),
+            ];
+
+            return $this->sendResponse($stats, 'Sync status retrieved.');
+
+        } catch (\Exception $e) {
+            return $this->sendError('Failed to get sync status.', ['error' => $e->getMessage()], 500);
+        }
     }
 }

@@ -16,6 +16,7 @@ class Fleet extends Model
         'make',
         'model',
         'modelyear',
+        'school_id',
         'instructor'
     ];
 

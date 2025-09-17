@@ -25,6 +25,7 @@ class Schedule extends Model
     'recurring_pattern',
     'recurring_end_date',
     'notes',
+    'school_id',
     'instructor_notes',
 ];
     protected $casts = [

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('make');
             $table->string('model');
             $table->string('modelyear');
+            $table->string('status')->default('available');
             $table->unsignedBigInteger('instructor')->nullable(); // Allow NULL
             $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->timestamp('updated_at')->default(DB::raw('CURRENT_TIMESTAMP'));

@@ -13,7 +13,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'fname', 'lname', 'email', 'password', 'date_of_birth',
-        'role', 'status', 'gender', 'phone', 'address', 'idnumber',
+        'role', 'status', 'gender', 'phone', 'address', 'idnumber','school_id',
     ];
 
     protected $hidden = [
@@ -28,6 +28,16 @@ class User extends Authenticatable
     ];
 
     // Relationships
+    public function school()
+    {
+        return $this->belongsTo(School::class);
+    }
+
+    // Add this scope to your User model:
+    public function scopeForSchool($query, $schoolId)
+    {
+        return $query->where('school_id', $schoolId);
+    }
     public function studentSchedules()
     {
         return $this->hasMany(Schedule::class, 'student');
