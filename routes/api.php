@@ -23,7 +23,7 @@ Route::prefix('schools')->group(function () {
     Route::post('/authenticate', [SchoolController::class, 'authenticateUser']);
 });
 
-// Traditional Authentication routes  
+// Traditional Authentication routes
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [AuthController::class, 'register']);
 
@@ -39,18 +39,7 @@ Route::get('/health', function () {
 
 // === PROTECTED ROUTES (Authentication required) ===
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/debug/auth', function() {
-    $user = auth()->user();
-    
-    return response()->json([
-        'user_id' => $user->id,
-        'email' => $user->email,
-        'school_id' => $user->school_id,
-        'school_id_type' => gettype($user->school_id),
-        'role' => $user->role,
-        'status' => $user->status,
-    ]);
-});
+
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/user', [AuthController::class, 'user']);
