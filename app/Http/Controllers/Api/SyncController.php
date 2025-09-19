@@ -462,8 +462,8 @@ private function upsertSchedule($data, $operation)
             'course' => $data['course_id'] ?? $data['course'] ?? null,
             'car' => $data['vehicle_id'] ?? $data['car'] ?? null,
             'is_recurring' => $data['is_recurring'] ?? 0,
-            'recurring_pattern' => $data['recurring_pattern'] ?? null,
-            'recurring_end_date ' => $data['recurring_end_date'] ?? null,
+            'recurring_pattern' => $data['recurrence_pattern'] ?? null,  // ✅ FIXED: Match Flutter field name
+            'recurring_end_date' => $data['recurrence_end_date'] ?? null,  // ✅ FIXED: Match Flutter field name
             'attended' => $data['attended'] ?? 0,
             'lessons_deducted' => $data['lessons_deducted'] ?? 0,
             'lessons_completed' => $data['lessons_completed'] ?? 0,
@@ -476,8 +476,6 @@ private function upsertSchedule($data, $operation)
         ]
     );
 }
-
-
 
 private function upsertInvoice($data, $operation)
 {
