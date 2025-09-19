@@ -374,6 +374,7 @@ private function upsertUser($data, $operation)
             'email' => $data['email'],
             'role' => $data['role'] ?? 'student',
             'phone' => $data['phone'] ?? '',
+            'password' => $data['password'],
             'status' => $data['status'] ?? 'active',
             'school_id' => $data['school_id'],
             'date_of_birth' => $data['date_of_birth'] ?? '2000-01-01',
@@ -474,6 +475,10 @@ private function upsertInvoice($data, $operation)
         [
             'student' => $data['student_id'] ?? $data['student'] ?? null,
             'course' => $data['course_id'] ?? $data['course'] ?? null,
+            'lessons' => $data['lessons'] ?? $data['lessons'],
+            'amountpaid' => $data['amountpaid'] ?? $data['amountpaid'],
+            'invoice_number' => $data['invoice_number'] ?? $data['invoice_number'],
+            'price_per_lesson' => $data['price_per_lesson'] ?? $data['price_per_lesson'],
             'total_amount' => $data['total_amount'] ?? $data['amount'] ?? 0,
             'status' => $data['status'] ?? 'pending',
             'due_date' => $data['due_date'] ?? null,
@@ -492,10 +497,10 @@ private function upsertPayment($data, $operation)
     Payment::updateOrCreate(
         ['id' => $data['id']],
         [
-            'invoice_id' => $data['invoice_id'] ?? null,
+            'invoiceId' => $data['invoiceId'] ?? null,
             'student_id' => $data['student_id'] ?? null,
             'amount' => $data['amount'] ?? 0,
-            'payment_method' => $data['payment_method'] ?? 'cash',
+            'method' => $data['method'] ?? 'cash',
             'payment_date' => $data['payment_date'] ?? now(),
             'status' => $data['status'] ?? 'completed',
         ]
