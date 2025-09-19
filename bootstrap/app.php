@@ -2,6 +2,7 @@
 // bootstrap/app.php
 
 use Illuminate\Foundation\Application;
+use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'verified' => EnsureEmailIsVerified::class,
+            'admin' => AdminMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

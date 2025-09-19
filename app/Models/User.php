@@ -1,5 +1,5 @@
 <?php
-// app/Models/User.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,11 +33,11 @@ class User extends Authenticatable
         return $this->belongsTo(School::class);
     }
 
-    // Add this scope to your User model:
     public function scopeForSchool($query, $schoolId)
     {
         return $query->where('school_id', $schoolId);
     }
+
     public function studentSchedules()
     {
         return $this->hasMany(Schedule::class, 'student');
@@ -53,9 +53,10 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class, 'student');
     }
 
+    // Payments relationship using userId
     public function payments()
     {
-        return $this->hasMany(Payment::class, 'student');
+        return $this->hasMany(Payment::class, 'userId');
     }
 
     public function assignedVehicles()

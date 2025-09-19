@@ -32,7 +32,7 @@
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                 Schools
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total_schools'] }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($stats['total_schools']) }}</div>
                             <div class="text-xs text-muted">{{ $stats['active_schools'] }} active</div>
                         </div>
                         <div class="col-auto">
@@ -52,11 +52,8 @@
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                 Total Users
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total_users'] }}</div>
-                            <div class="text-xs text-muted">
-                                <span class="text-success">{{ $stats['total_students'] }}</span> students, 
-                                <span class="text-info">{{ $stats['total_instructors'] }}</span> instructors
-                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($stats['total_users']) }}</div>
+                            <div class="text-xs text-muted">{{ $stats['total_students'] }} students, {{ $stats['total_instructors'] }} instructors</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-users fa-2x text-gray-300"></i>
@@ -73,7 +70,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Fleet Vehicles
+                                Fleet
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total_vehicles'] }}</div>
                             <div class="text-xs text-muted">{{ $stats['available_vehicles'] }} available</div>
@@ -116,11 +113,11 @@
                     <h6 class="m-0 font-weight-bold text-primary">Monthly Revenue</h6>
                     <div class="dropdown no-arrow">
                         <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in">
-                            <a class="dropdown-item" href="{{ route('admin.reports.revenue') }}">View Full Report</a>
+                            <span class="dropdown-item-text">View Full Report</span>
                         </div>
                     </div>
                 </div>
@@ -137,103 +134,30 @@
                     <h6 class="m-0 font-weight-bold text-primary">Today's Overview</h6>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col">
-                            <div class="text-center mb-3">
-                                <div class="text-2xl font-weight-bold text-primary">{{ $stats['todays_schedules'] }}</div>
-                                <div class="text-xs text-muted">Today's Lessons</div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row text-center">
+                    <div class="row mb-3">
                         <div class="col-6">
-                            <div class="text-lg font-weight-bold text-success">{{ $stats['active_users'] }}</div>
-                            <div class="text-xs text-muted">Active Users</div>
+                            <div class="text-xs font-weight-bold text-uppercase mb-1">Today's Lessons</div>
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">{{ $stats['todays_schedules'] }}</div>
                         </div>
                         <div class="col-6">
-                            <div class="text-lg font-weight-bold text-info">{{ $stats['available_vehicles'] }}</div>
-                            <div class="text-xs text-muted">Available Cars</div>
+                            <div class="text-xs font-weight-bold text-uppercase mb-1">Active Users</div>
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">{{ $stats['active_users'] }}</div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {{-- Quick Actions --}}
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
-                </div>
-                <div class="card-body">
-                    <a href="{{ route('admin.users.create') }}" class="btn btn-primary btn-sm btn-block mb-2">
-                        <i class="fas fa-user-plus"></i> Add New User
-                    </a>
-                    <a href="{{ route('admin.schools.create') }}" class="btn btn-success btn-sm btn-block mb-2">
-                        <i class="fas fa-school"></i> Add New School
-                    </a>
-                    <a href="{{ route('admin.fleet.create') }}" class="btn btn-info btn-sm btn-block mb-2">
-                        <i class="fas fa-car"></i> Add New Vehicle
-                    </a>
-                    <a href="{{ route('admin.reports.index') }}" class="btn btn-warning btn-sm btn-block">
-                        <i class="fas fa-chart-bar"></i> View Reports
-                    </a>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ $stats['total_vehicles'] > 0 ? ($stats['available_vehicles'] / $stats['total_vehicles']) * 100 : 0 }}%" aria-valuenow="{{ $stats['available_vehicles'] }}" aria-valuemin="0" aria-valuemax="{{ $stats['total_vehicles'] }}">
+                            Fleet Availability
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Recent Activity Tables --}}
+    {{-- Recent Activity Row --}}
     <div class="row">
-        {{-- Recent Users --}}
-        <div class="col-xl-4 col-lg-6">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Recent Users</h6>
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($recentUsers as $user)
-                                <tr>
-                                    <td>
-                                        <a href="{{ route('admin.users.show', $user) }}" class="text-decoration-none">
-                                            {{ $user->full_name }}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-{{ $user->role === 'admin' ? 'danger' : ($user->role === 'instructor' ? 'info' : 'success') }}">
-                                            {{ ucfirst($user->role) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-{{ $user->status === 'active' ? 'success' : 'secondary' }}">
-                                            {{ ucfirst($user->status) }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="3" class="text-center text-muted">No recent users</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {{-- Recent Schedules --}}
-        <div class="col-xl-4 col-lg-6">
+        <div class="col-xl-8 col-lg-12">
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
                     <h6 class="m-0 font-weight-bold text-primary">Recent Schedules</h6>
@@ -245,6 +169,8 @@
                             <thead>
                                 <tr>
                                     <th>Student</th>
+                                    <th>Instructor</th>
+                                    <th>Course</th>
                                     <th>Date</th>
                                     <th>Status</th>
                                 </tr>
@@ -253,20 +179,88 @@
                                 @forelse($recentSchedules as $schedule)
                                 <tr>
                                     <td>
+                                        @php
+                                            // Safe way to get student info
+                                            $studentName = 'N/A';
+                                            if (isset($schedule->student) && is_object($schedule->student)) {
+                                                $studentName = ($schedule->student->fname ?? '') . ' ' . ($schedule->student->lname ?? '');
+                                            } elseif (is_numeric($schedule->student)) {
+                                                // If student is just an ID, fetch the user
+                                                $student = \App\Models\User::find($schedule->student);
+                                                $studentName = $student ? ($student->fname . ' ' . $student->lname) : "Student ID: {$schedule->student}";
+                                            }
+                                        @endphp
                                         <a href="{{ route('admin.schedules.show', $schedule) }}" class="text-decoration-none">
-                                            {{ $schedule->student->full_name ?? 'N/A' }}
+                                            {{ trim($studentName) ?: 'N/A' }}
                                         </a>
                                     </td>
-                                    <td>{{ \Carbon\Carbon::parse($schedule->start)->format('M d') }}</td>
                                     <td>
-                                        <span class="badge badge-{{ $schedule->status === 'completed' ? 'success' : ($schedule->status === 'cancelled' ? 'danger' : 'warning') }}">
-                                            {{ ucfirst($schedule->status) }}
+                                        @php
+                                            // Safe way to get instructor info
+                                            $instructorName = 'N/A';
+                                            if (isset($schedule->instructor) && is_object($schedule->instructor)) {
+                                                $instructorName = ($schedule->instructor->fname ?? '') . ' ' . ($schedule->instructor->lname ?? '');
+                                            } elseif (is_numeric($schedule->instructor)) {
+                                                // If instructor is just an ID, fetch the user
+                                                $instructor = \App\Models\User::find($schedule->instructor);
+                                                $instructorName = $instructor ? ($instructor->fname . ' ' . $instructor->lname) : "Instructor ID: {$schedule->instructor}";
+                                            }
+                                        @endphp
+                                        {{ trim($instructorName) ?: 'N/A' }}
+                                    </td>
+                                    <td>
+                                        @php
+                                            // Safe way to get course info
+                                            $courseName = 'N/A';
+                                            if (isset($schedule->course) && is_object($schedule->course)) {
+                                                $courseName = $schedule->course->name ?? 'N/A';
+                                            } elseif (is_numeric($schedule->course)) {
+                                                // If course is just an ID, fetch the course
+                                                $course = \App\Models\Course::find($schedule->course);
+                                                $courseName = $course ? $course->name : "Course ID: {$schedule->course}";
+                                            }
+                                        @endphp
+                                        {{ $courseName }}
+                                    </td>
+                                    <td>
+                                        @if($schedule->start)
+                                            {{ \Carbon\Carbon::parse($schedule->start)->format('M d, Y H:i') }}
+                                        @else
+                                            N/A
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @php
+                                            // Safe status handling with proper fallback
+                                            $status = $schedule->status ?? 'scheduled';
+                                            $status = strtolower(trim($status)) ?: 'scheduled';
+
+                                            // Map status to badge colors - using darker variants for better visibility
+                                            $badgeClass = match($status) {
+                                                'completed' => 'success',
+                                                'cancelled', 'canceled' => 'danger',
+                                                'missed' => 'danger',
+                                                'in_progress', 'ongoing' => 'info',
+                                                'scheduled', 'pending' => 'primary', // Changed from 'warning' to 'primary' for better visibility
+                                                default => 'dark' // Changed from 'secondary' to 'dark'
+                                            };
+
+                                            // Display status
+                                            $displayStatus = match($status) {
+                                                'in_progress' => 'In Progress',
+                                                'cancelled' => 'Cancelled',
+                                                'canceled' => 'Cancelled',
+                                                default => ucfirst($status)
+                                            };
+                                        @endphp
+                                        <span class="badge badge-{{ $badgeClass }}">
+                                            {{ $displayStatus }}
                                         </span>
                                     </td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">No recent schedules</td>
+                                    <td colspan="5" class="text-center text-muted">No recent schedules</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -297,14 +291,40 @@
                                 @forelse($recentPayments as $payment)
                                 <tr>
                                     <td>
+                                        @php
+                                            // Safe way to get payment student info
+                                            $paymentStudentName = 'N/A';
+                                            if (isset($payment->invoice) && is_object($payment->invoice) && isset($payment->invoice->student) && is_object($payment->invoice->student)) {
+                                                $paymentStudentName = ($payment->invoice->student->fname ?? '') . ' ' . ($payment->invoice->student->lname ?? '');
+                                            } elseif (isset($payment->user) && is_object($payment->user)) {
+                                                $paymentStudentName = ($payment->user->fname ?? '') . ' ' . ($payment->user->lname ?? '');
+                                            } elseif (isset($payment->userId) && is_numeric($payment->userId)) {
+                                                $user = \App\Models\User::find($payment->userId);
+                                                $paymentStudentName = $user ? ($user->fname . ' ' . $user->lname) : "User ID: {$payment->userId}";
+                                            }
+                                        @endphp
                                         <a href="{{ route('admin.payments.show', $payment) }}" class="text-decoration-none">
-                                            {{ $payment->student->full_name ?? 'N/A' }}
+                                            {{ trim($paymentStudentName) ?: 'N/A' }}
                                         </a>
                                     </td>
                                     <td>${{ number_format($payment->amount, 2) }}</td>
                                     <td>
-                                        <span class="badge badge-{{ $payment->status === 'completed' ? 'success' : ($payment->status === 'failed' ? 'danger' : 'warning') }}">
-                                            {{ ucfirst($payment->status) }}
+                                        @php
+                                            // Safe payment status handling
+                                            $paymentStatus = strtolower(trim($payment->status ?? 'pending'));
+
+                                            $paymentBadgeClass = match($paymentStatus) {
+                                                'completed', 'paid' => 'success',
+                                                'failed', 'cancelled' => 'danger',
+                                                'pending', 'processing' => 'primary',
+                                                'refunded' => 'info',
+                                                default => 'dark'
+                                            };
+
+                                            $paymentDisplayStatus = ucfirst($paymentStatus);
+                                        @endphp
+                                        <span class="badge badge-{{ $paymentBadgeClass }}">
+                                            {{ $paymentDisplayStatus }}
                                         </span>
                                     </td>
                                 </tr>
@@ -327,52 +347,54 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Revenue Chart
-    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-    const revenueData = @json($monthlyRevenue);
-    
-    new Chart(revenueCtx, {
-        type: 'line',
-        data: {
-            labels: revenueData.map(item => {
-                const date = new Date(item.month + '-01');
-                return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-            }),
-            datasets: [{
-                label: 'Revenue ($)',
-                data: revenueData.map(item => item.total),
-                borderColor: 'rgb(78, 115, 223)',
-                backgroundColor: 'rgba(78, 115, 223, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
+    const revenueCtx = document.getElementById('revenueChart');
+    if (revenueCtx) {
+        const revenueData = @json($monthlyRevenue);
+
+        new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: revenueData.map(item => {
+                    const date = new Date(item.month + '-01');
+                    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                }),
+                datasets: [{
+                    label: 'Revenue ($)',
+                    data: revenueData.map(item => parseFloat(item.total || 0)),
+                    borderColor: 'rgb(78, 115, 223)',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return ' + value.toLocaleString();'
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
                         }
                     }
-                }
-            },
-            elements: {
-                point: {
-                    radius: 3,
-                    hoverRadius: 3
+                },
+                elements: {
+                    point: {
+                        radius: 3,
+                        hoverRadius: 5
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 });
 </script>
 @endpush

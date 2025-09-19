@@ -7,17 +7,17 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    
+
     <title>@yield('title', 'Admin Dashboard') - {{ config('app.name', 'Driving School') }}</title>
-    
+
     <!-- Custom fonts for this template-->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
-    
+
     <!-- Custom styles -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/datatables.net-bs5@1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    
+
     <style>
         :root {
             --primary-color: #4e73df;
@@ -28,41 +28,180 @@
             --danger-color: #e74a3b;
             --light-color: #f8f9fc;
             --dark-color: #5a5c69;
+            --sidebar-width: 14rem;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--light-color);
+            margin: 0;
+            padding: 0;
         }
 
-        .sidebar {
-            background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+        /* Main Wrapper */
+        #wrapper {
+            display: flex;
             min-height: 100vh;
         }
 
-        .sidebar .nav-link {
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-height: 100vh;
+            background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-brand {
+            height: 4.375rem;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05rem;
+            z-index: 1;
             color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-brand:hover {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .sidebar-brand-icon {
+            margin-right: 0.25rem;
+            font-size: 2rem;
+        }
+
+        .sidebar-brand-text {
+            font-size: 1.25rem;
+            display: block;
+            margin-left: 0.5rem;
+        }
+
+        .sidebar-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            margin: 0 1rem 1rem;
+        }
+
+        .sidebar-heading {
+            text-align: center;
+            padding: 0 1rem;
+            font-weight: 800;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 1rem;
+        }
+
+        .sidebar .nav-item {
+            list-style: none;
+        }
+
+        .sidebar .nav-link {
+            display: block;
+            width: 100%;
+            text-align: left;
             padding: 1rem;
-            border-radius: 0.35rem;
-            margin-bottom: 0.25rem;
+            position: relative;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 400;
+            transition: all 0.15s ease-in-out;
         }
 
         .sidebar .nav-link:hover {
             color: #fff;
-            background-color: rgba(255, 255, 255, 0.1);
+            text-decoration: none;
         }
 
-        .sidebar .nav-link.active {
+        .sidebar .nav-link:hover i {
             color: #fff;
-            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .sidebar .nav-link i {
-            margin-right: 0.5rem;
-            width: 1rem;
+            font-size: 0.85rem;
+            margin-right: 0.25rem;
             text-align: center;
+            width: 2rem;
+            color: rgba(255, 255, 255, 0.5);
         }
 
+        .sidebar .nav-item.active .nav-link {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .sidebar .nav-item.active .nav-link i {
+            color: #fff;
+        }
+
+        /* Content Wrapper */
+        .content-wrapper {
+            width: 100%;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 4.375rem;
+            background-color: #fff;
+            border-bottom: 1px solid #e3e6f0;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        .topbar .sidebar-toggler {
+            width: 2.5rem;
+            height: 2.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            display: none;
+        }
+
+        /* Main Content */
+        .container-fluid {
+            flex: 1;
+            padding: 1.5rem;
+        }
+
+        /* Cards */
+        .card {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            border: 1px solid #e3e6f0;
+            border-radius: 0.35rem;
+        }
+
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid #e3e6f0;
+        }
+
+        /* Border utilities */
         .border-left-primary {
             border-left: 0.25rem solid var(--primary-color) !important;
         }
@@ -79,11 +218,27 @@
             border-left: 0.25rem solid var(--warning-color) !important;
         }
 
-        .card {
-            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-            border: 1px solid #e3e6f0;
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                margin-left: calc(var(--sidebar-width) * -1);
+            }
+
+            .sidebar.active {
+                margin-left: 0;
+            }
+
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .topbar .sidebar-toggler {
+                display: block;
+            }
         }
 
+        /* Additional Styles */
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
@@ -97,41 +252,70 @@
             background-color: var(--primary-color) !important;
         }
 
-        .navbar-brand {
-            font-weight: 800;
-            font-size: 1.75rem;
+        /* Badge Fixes - Ensure all text is visible */
+        .badge {
+            color: #fff !important;
+            font-weight: 600;
+            font-size: 0.75em;
+            padding: 0.375em 0.75em;
+            border-radius: 0.375rem;
+        }
+
+        .badge-primary {
+            background-color: var(--primary-color) !important;
             color: #fff !important;
         }
 
-        .topbar {
-            height: 4.375rem;
-            background-color: #fff;
-            border-bottom: 1px solid #e3e6f0;
+        .badge-success {
+            background-color: var(--success-color) !important;
+            color: #fff !important;
         }
 
-        .content-wrapper {
-            padding: 2rem;
+        .badge-danger {
+            background-color: var(--danger-color) !important;
+            color: #fff !important;
         }
 
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                top: 0;
-                left: -250px;
-                width: 250px;
-                height: 100vh;
-                z-index: 1000;
-                transition: left 0.3s ease;
-            }
+        .badge-warning {
+            background-color: #f39c12 !important;
+            color: #fff !important;
+        }
 
-            .sidebar.show {
-                left: 0;
-            }
+        .badge-info {
+            background-color: var(--info-color) !important;
+            color: #fff !important;
+        }
 
-            .content-wrapper {
-                margin-left: 0;
-                padding: 1rem;
-            }
+        .badge-secondary {
+            background-color: #6c757d !important;
+            color: #fff !important;
+        }
+
+        .badge-dark {
+            background-color: #343a40 !important;
+            color: #fff !important;
+        }
+
+        /* Scroll to top button */
+        .scroll-to-top {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            width: 2.75rem;
+            height: 2.75rem;
+            text-align: center;
+            color: #fff;
+            background: rgba(90, 92, 105, 0.5);
+            line-height: 46px;
+            border-radius: 100%;
+            display: none;
+            z-index: 1000;
+        }
+
+        .scroll-to-top:hover {
+            background: rgba(90, 92, 105, 0.9);
+            color: #fff;
+            text-decoration: none;
         }
     </style>
 
@@ -141,13 +325,13 @@
 <body>
     <div id="wrapper">
         <!-- Sidebar -->
-        <nav class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+        <ul class="navbar-nav sidebar sidebar-dark accordion" id="accordionSidebar">
             <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ route('admin.dashboard') }}">
+            <a class="sidebar-brand" href="{{ route('admin.dashboard') }}">
                 <div class="sidebar-brand-icon">
                     <i class="fas fa-car-side"></i>
                 </div>
-                <div class="sidebar-brand-text mx-3">Admin Panel</div>
+                <div class="sidebar-brand-text">Admin Panel</div>
             </a>
 
             <!-- Divider -->
@@ -191,19 +375,19 @@
                 </a>
             </li>
 
-            <!-- Nav Item - Schedules -->
-            <li class="nav-item {{ request()->routeIs('admin.schedules*') ? 'active' : '' }}">
-                <a class="nav-link" href="{{ route('admin.schedules.index') }}">
-                    <i class="fas fa-fw fa-calendar-alt"></i>
-                    <span>Schedules</span>
-                </a>
-            </li>
-
             <!-- Nav Item - Courses -->
             <li class="nav-item {{ request()->routeIs('admin.courses*') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('admin.courses.index') }}">
                     <i class="fas fa-fw fa-book"></i>
                     <span>Courses</span>
+                </a>
+            </li>
+
+            <!-- Nav Item - Schedules -->
+            <li class="nav-item {{ request()->routeIs('admin.schedules*') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('admin.schedules.index') }}">
+                    <i class="fas fa-fw fa-calendar"></i>
+                    <span>Schedules</span>
                 </a>
             </li>
 
@@ -229,6 +413,12 @@
                 </a>
             </li>
 
+            <!-- Divider -->
+            <hr class="sidebar-divider">
+
+            <!-- Heading -->
+            <div class="sidebar-heading">Reports</div>
+
             <!-- Nav Item - Reports -->
             <li class="nav-item {{ request()->routeIs('admin.reports*') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('admin.reports.index') }}">
@@ -240,146 +430,60 @@
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 
-            <!-- Nav Item - Settings -->
-            <li class="nav-item {{ request()->routeIs('admin.settings*') ? 'active' : '' }}">
-                <a class="nav-link" href="{{ route('admin.settings') }}">
-                    <i class="fas fa-fw fa-cogs"></i>
-                    <span>Settings</span>
-                </a>
-            </li>
-
-            <!-- Sidebar Toggler (Sidebar) -->
+            <!-- Sidebar Toggler -->
             <div class="text-center d-none d-md-inline">
-                <button class="rounded-circle border-0" id="sidebarToggle"></button>
+                <button class="rounded-circle border-0" id="sidebarToggle" style="background: rgba(255,255,255,0.2); color: white; width: 2rem; height: 2rem; border: none !important;"></button>
             </div>
-        </nav>
+        </ul>
         <!-- End of Sidebar -->
 
         <!-- Content Wrapper -->
-        <div id="content-wrapper" class="d-flex flex-column">
-            <!-- Main Content -->
-            <div id="content">
-                <!-- Topbar -->
-                <nav class="navbar navbar-expand topbar mb-4 static-top shadow">
-                    <!-- Sidebar Toggle (Topbar) -->
-                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
-                        <i class="fa fa-bars"></i>
-                    </button>
+        <div class="content-wrapper">
+            <!-- Topbar -->
+            <nav class="navbar navbar-expand navbar-light topbar mb-4">
+                <!-- Sidebar Toggle (Topbar) -->
+                <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3 sidebar-toggler">
+                    <i class="fa fa-bars"></i>
+                </button>
 
-                    <!-- Topbar Navbar -->
-                    <ul class="navbar-nav ml-auto">
-                        <!-- Nav Item - Alerts Dropdown -->
-                        <li class="nav-item dropdown no-arrow mx-1">
-                            <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
-                                data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="fas fa-bell fa-fw"></i>
-                                <!-- Counter - Alerts -->
-                                <span class="badge badge-danger badge-counter">{{ $stats['pending_invoices'] ?? 0 }}+</span>
+                <!-- Topbar Navbar -->
+                <ul class="navbar-nav ml-auto">
+                    <!-- Nav Item - User Information -->
+                    <li class="nav-item dropdown no-arrow">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{ Auth::user()->fname }} {{ Auth::user()->lname }}</span>
+                            <div class="topbar-divider d-none d-sm-block"></div>
+                            <i class="fas fa-user-circle fa-lg text-gray-400"></i>
+                        </a>
+                        <!-- Dropdown - User Information -->
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                            aria-labelledby="userDropdown">
+                            <a class="dropdown-item" href="#">
+                                <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+                                Profile
                             </a>
-                            <!-- Dropdown - Alerts -->
-                            <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in">
-                                <h6 class="dropdown-header">Alerts Center</h6>
-                                <a class="dropdown-item d-flex align-items-center" href="{{ route('admin.invoices.index') }}">
-                                    <div class="mr-3">
-                                        <div class="icon-circle bg-warning">
-                                            <i class="fas fa-file-alt text-white"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="small text-gray-500">{{ now()->format('M d, Y') }}</div>
-                                        <span class="font-weight-bold">{{ $stats['pending_invoices'] ?? 0 }} pending invoices need attention</span>
-                                    </div>
-                                </a>
-                                <a class="dropdown-item text-center small text-gray-500" href="{{ route('admin.invoices.index') }}">Show All Alerts</a>
-                            </div>
-                        </li>
-
-                        <!-- Nav Item - User Information -->
-                        <li class="nav-item dropdown no-arrow">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
-                                data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{ Auth::user()->full_name }}</span>
-                                <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center" 
-                                     style="width: 2rem; height: 2rem; color: white;">
-                                    <i class="fas fa-user"></i>
-                                </div>
+                            <a class="dropdown-item" href="#">
+                                <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
+                                Settings
                             </a>
-                            <!-- Dropdown - User Information -->
-                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in">
-                                <a class="dropdown-item" href="{{ route('admin.profile') }}">
-                                    <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Profile
-                                </a>
-                                <a class="dropdown-item" href="{{ route('admin.settings') }}">
-                                    <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Settings
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Logout
-                                </a>
-                                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-                                    @csrf
-                                </form>
-                            </div>
-                        </li>
-                    </ul>
-                </nav>
-                <!-- End of Topbar -->
-
-                <!-- Begin Page Content -->
-                <div class="content-wrapper">
-                    <!-- Flash Messages -->
-                    @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                                <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                                Logout
+                            </a>
                         </div>
-                    @endif
+                    </li>
+                </ul>
+            </nav>
+            <!-- End of Topbar -->
 
-                    @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    @if(session('warning'))
-                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('warning') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    @if($errors->any())
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            <strong>Please fix the following errors:</strong>
-                            <ul class="mb-0 mt-2">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    @yield('content')
-                </div>
-                <!-- End of Page Content -->
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Content -->
+                @yield('content')
             </div>
-            <!-- End of Main Content -->
-
-            <!-- Footer -->
-            <footer class="sticky-footer bg-white">
-                <div class="container my-auto">
-                    <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; {{ config('app.name') }} {{ date('Y') }}</span>
-                    </div>
-                </div>
-            </footer>
-            <!-- End of Footer -->
+            <!-- /.container-fluid -->
         </div>
         <!-- End of Content Wrapper -->
     </div>
@@ -390,10 +494,33 @@
         <i class="fas fa-angle-up"></i>
     </a>
 
+    <!-- Logout Modal-->
+    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
+                    <button class="close" type="button" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" action="{{ route('logout') }}" style="display: inline;">
+                        @csrf
+                        <button type="submit" class="btn btn-primary">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap core JavaScript-->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    
+
     <!-- DataTables -->
     <script src="https://cdn.jsdelivr.net/npm/datatables.net@1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/datatables.net-bs5@1.13.6/js/dataTables.bootstrap5.min.js"></script>
@@ -410,19 +537,25 @@
                 });
             }
 
-            // Sidebar toggle functionality
-            $("#sidebarToggle, #sidebarToggleTop").on('click', function(e) {
+            // Sidebar toggle functionality for mobile
+            $("#sidebarToggleTop").on('click', function(e) {
+                e.preventDefault();
+                $(".sidebar").toggleClass("active");
+            });
+
+            // Sidebar toggle for desktop (collapse)
+            $("#sidebarToggle").on('click', function(e) {
+                e.preventDefault();
                 $("body").toggleClass("sidebar-toggled");
                 $(".sidebar").toggleClass("toggled");
-                if ($(".sidebar").hasClass("toggled")) {
-                    $('.sidebar .collapse').collapse('hide');
-                }
             });
 
             // Close sidebar on mobile when clicking outside
-            $(window).resize(function() {
+            $(document).on('click', function(e) {
                 if ($(window).width() < 768) {
-                    $('.sidebar').removeClass('show');
+                    if (!$(e.target).closest('.sidebar, #sidebarToggleTop').length) {
+                        $('.sidebar').removeClass('active');
+                    }
                 }
             });
 
@@ -430,6 +563,23 @@
             setTimeout(function() {
                 $('.alert:not(.alert-permanent)').fadeOut('slow');
             }, 5000);
+
+            // Scroll to top functionality
+            $(window).scroll(function() {
+                if ($(this).scrollTop() > 100) {
+                    $('.scroll-to-top').fadeIn();
+                } else {
+                    $('.scroll-to-top').fadeOut();
+                }
+            });
+
+            $('.scroll-to-top').click(function(e) {
+                e.preventDefault();
+                $('html, body').animate({
+                    scrollTop: 0
+                }, 600);
+                return false;
+            });
         });
     </script>
 

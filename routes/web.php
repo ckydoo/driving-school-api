@@ -5,7 +5,7 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AdminController;
-use App\Http\Controllers\Auth\AdminAuthController;
+use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminFleetController;
 use App\Http\Controllers\Admin\AdminCourseController;
@@ -63,29 +63,29 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('schedules/calendar', [AdminScheduleController::class, 'calendar'])->name('schedules.calendar');
 
     // Fleet Management
-    // Route::resource('fleet', AdminFleetController::class);
-    // Route::post('fleet/{fleet}/assign-instructor', [AdminFleetController::class, 'assignInstructor'])->name('fleet.assign-instructor');
-    // Route::get('fleet/{fleet}/schedules', [AdminFleetController::class, 'fleetSchedules'])->name('fleet.schedules');
+    Route::resource('fleet', AdminFleetController::class);
+    Route::post('fleet/{fleet}/assign-instructor', [AdminFleetController::class, 'assignInstructor'])->name('fleet.assign-instructor');
+    Route::get('fleet/{fleet}/schedules', [AdminFleetController::class, 'fleetSchedules'])->name('fleet.schedules');
 
-    // // Course Management
-    // Route::resource('courses', AdminCourseController::class);
+    // Course Management
+    Route::resource('courses', AdminCourseController::class);
 
-    // // Invoice Management
-    // Route::resource('invoices', AdminInvoiceController::class);
-    // Route::post('invoices/{invoice}/send', [AdminInvoiceController::class, 'sendInvoice'])->name('invoices.send');
-    // Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
+    // Invoice Management
+    Route::resource('invoices', AdminInvoiceController::class);
+    Route::post('invoices/{invoice}/send', [AdminInvoiceController::class, 'sendInvoice'])->name('invoices.send');
+    Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
 
-    // // Payment Management
-    // Route::resource('payments', AdminPaymentController::class);
-    // Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verifyPayment'])->name('payments.verify');
+    // Payment Management
+    Route::resource('payments', AdminPaymentController::class);
+    Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verifyPayment'])->name('payments.verify');
 
     // // Reports
-    // Route::get('reports', [AdminReportController::class, 'index'])->name('reports.index');
-    // Route::get('reports/revenue', [AdminReportController::class, 'revenue'])->name('reports.revenue');
-    // Route::get('reports/students', [AdminReportController::class, 'students'])->name('reports.students');
-    // Route::get('reports/instructors', [AdminReportController::class, 'instructors'])->name('reports.instructors');
-    // Route::get('reports/vehicles', [AdminReportController::class, 'vehicles'])->name('reports.vehicles');
-    // Route::get('reports/export/{type}', [AdminReportController::class, 'export'])->name('reports.export');
+    Route::get('reports', [AdminReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/revenue', [AdminReportController::class, 'revenue'])->name('reports.revenue');
+    Route::get('reports/students', [AdminReportController::class, 'students'])->name('reports.students');
+    Route::get('reports/instructors', [AdminReportController::class, 'instructors'])->name('reports.instructors');
+    Route::get('reports/vehicles', [AdminReportController::class, 'vehicles'])->name('reports.vehicles');
+    Route::get('reports/export/{type}', [AdminReportController::class, 'export'])->name('reports.export');
 
     // Settings
     Route::get('settings', [AdminController::class, 'settings'])->name('settings');

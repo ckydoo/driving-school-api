@@ -45,6 +45,10 @@ class Payment extends Model
     {
         return $this->belongsTo(User::class, 'userId');
     }
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'userId');
+    }
 
     // Scopes
     public function scopePaid($query)

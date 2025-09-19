@@ -1,18 +1,14 @@
 <?php
-// app/Http/Controllers/Auth/AdminAuthController.php
 
-namespace App\Http\Controllers\Auth;
+namespace App\Http\Controllers\Admin;  // <- CORRECT NAMESPACE for Admin folder
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
 
 class AdminAuthController extends Controller
 {
-    use AuthenticatesUsers;
-
     /**
      * Where to redirect users after login.
      *
@@ -27,7 +23,8 @@ class AdminAuthController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('guest')->except('logout');
+        // Middleware is now handled at the route level
+        // No need to define middleware in the constructor
     }
 
     /**
@@ -63,9 +60,9 @@ class AdminAuthController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $user = Auth::user();
-            
+
             // Check if user is active
-            if ($user->status !== 'active') {
+            if (isset($user->status) && $user->status !== 'active') {
                 Auth::logout();
                 return back()->withErrors([
                     'email' => 'Your account is not active. Please contact administrator.',
@@ -73,12 +70,15 @@ class AdminAuthController extends Controller
             }
 
             // Check if user has admin or instructor privileges for admin panel
-            if (!in_array($user->role, ['admin', 'instructor'])) {
+            if (isset($user->role) && !in_array($user->role, ['admin', 'instructor'])) {
                 Auth::logout();
                 return back()->withErrors([
                     'email' => 'Access denied. Admin or instructor privileges required.',
                 ])->withInput();
             }
+
+            // Regenerate session to prevent session fixation
+            $request->session()->regenerate();
 
             // Redirect to intended page or admin dashboard
             $intended = $request->session()->pull('url.intended', route('admin.dashboard'));
