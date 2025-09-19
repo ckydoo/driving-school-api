@@ -1,8 +1,9 @@
 <?php
+// routes/api.php (Updated with School Scoping)
 
 use App\Http\Controllers\Api\{
     AuthController,
-    SchoolController, // Add this
+    SchoolController,
     UserController,
     CourseController,
     FleetController,
@@ -44,50 +45,83 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/user', [AuthController::class, 'user']);
 
-    // School Management - Protected endpoints
-    Route::prefix('schools')->group(function () {
-        Route::get('/dashboard', [SchoolController::class, 'dashboard']);
-        Route::put('/settings', [SchoolController::class, 'update']);
+    // === SUPER ADMIN ONLY API ROUTES ===
+    Route::middleware('super_admin')->group(function () {
+        // System-wide statistics
+        Route::get('/admin/system/stats', function () {
+            return response()->json([
+                'total_schools' => \App\Models\School::count(),
+                'active_schools' => \App\Models\School::where('status', 'active')->count(),
+                'trial_schools' => \App\Models\School::where('subscription_status', 'trial')->count(),
+                'paid_schools' => \App\Models\School::where('subscription_status', 'active')->count(),
+                'total_users' => \App\Models\User::count(),
+                'super_admins' => \App\Models\User::superAdmins()->count(),
+                'school_admins' => \App\Models\User::schoolAdmins()->count(),
+                'instructors' => \App\Models\User::instructors()->count(),
+                'students' => \App\Models\User::students()->count(),
+            ]);
+        });
+
+        // All schools management
+        Route::apiResource('admin/schools', SchoolController::class);
+        
+        // System-wide user management
+        Route::get('/admin/users/all', [UserController::class, 'allUsers']);
+        Route::get('/admin/users/super-admins', [UserController::class, 'superAdmins']);
     });
 
-    // Users (with school isolation)
-    Route::apiResource('users', UserController::class);
-    Route::get('/users/role/students', [UserController::class, 'students']);
-    Route::get('/users/role/instructors', [UserController::class, 'instructors']);
+    // === ADMIN ROUTES (Both Super Admin and School Admin) ===
+    Route::middleware(['admin', 'school_scope'])->group(function () {
+        
+        // School Management - Protected endpoints
+        Route::prefix('schools')->group(function () {
+            Route::get('/dashboard', [SchoolController::class, 'dashboard']);
+            Route::put('/settings', [SchoolController::class, 'update']);
+        });
 
-    // Courses
-    Route::apiResource('courses', CourseController::class);
+        // Users (with automatic school isolation for school admins)
+        Route::apiResource('users', UserController::class);
+        Route::get('/users/role/students', [UserController::class, 'students']);
+        Route::get('/users/role/instructors', [UserController::class, 'instructors']);
+        Route::get('/users/role/admins', [UserController::class, 'admins']);
 
-    // Fleet
-    Route::apiResource('fleet', FleetController::class);
-    Route::get('/fleet/status/available', [FleetController::class, 'available']);
+        // Courses (scoped to school)
+        Route::apiResource('courses', CourseController::class);
 
-    // Schedules
-    Route::apiResource('schedules', ScheduleController::class);
-    Route::post('/schedules/{id}/attend', [ScheduleController::class, 'markAttended']);
+        // Fleet (scoped to school)
+        Route::apiResource('fleet', FleetController::class);
+        Route::get('/fleet/status/available', [FleetController::class, 'available']);
 
-    // Invoices
-    Route::apiResource('invoices', InvoiceController::class);
-    Route::get('/invoices/student/{studentId}', [InvoiceController::class, 'studentInvoices']);
+        // Schedules (scoped to school)
+        Route::apiResource('schedules', ScheduleController::class);
+        Route::post('/schedules/{id}/attend', [ScheduleController::class, 'markAttended']);
 
-    // Payments
-    Route::apiResource('payments', PaymentController::class);
+        // Invoices (scoped to school)
+        Route::apiResource('invoices', InvoiceController::class);
+        Route::get('/invoices/student/{studentId}', [InvoiceController::class, 'studentInvoices']);
 
-    // Sync endpoints
-    Route::post('/sync/upload', [SyncController::class, 'upload']);
-    Route::get('/sync/download', [SyncController::class, 'download']);
-    Route::get('/sync/status', [SyncController::class, 'status']);
-});
+        // Payments (scoped to school)
+        Route::apiResource('payments', PaymentController::class);
 
-// === ADMIN ONLY ROUTES ===
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    // Admin-only endpoints can go here
-    Route::get('/admin/schools/stats', function () {
-        return response()->json([
-            'total_schools' => \App\Models\School::count(),
-            'active_schools' => \App\Models\School::active()->count(),
-            'trial_schools' => \App\Models\School::where('subscription_status', 'trial')->count(),
-            'paid_schools' => \App\Models\School::where('subscription_status', 'active')->count(),
-        ]);
+        // Sync endpoints (scoped to school)
+        Route::post('/sync/upload', [SyncController::class, 'upload']);
+        Route::get('/sync/download', [SyncController::class, 'download']);
+        Route::get('/sync/status', [SyncController::class, 'status']);
+    });
+
+    // === INSTRUCTOR ROUTES ===
+    Route::middleware('instructor')->group(function () {
+        // Instructor-specific endpoints
+        Route::get('/instructor/schedules', [ScheduleController::class, 'instructorSchedules']);
+        Route::get('/instructor/students', [UserController::class, 'instructorStudents']);
+        Route::get('/instructor/fleet', [FleetController::class, 'instructorVehicles']);
+    });
+
+    // === STUDENT ROUTES ===
+    Route::middleware('student')->group(function () {
+        // Student-specific endpoints
+        Route::get('/student/schedules', [ScheduleController::class, 'studentSchedules']);
+        Route::get('/student/invoices', [InvoiceController::class, 'studentInvoices']);
+        Route::get('/student/payments', [PaymentController::class, 'studentPayments']);
     });
 });

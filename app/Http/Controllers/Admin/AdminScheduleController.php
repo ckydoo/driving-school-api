@@ -272,7 +272,7 @@ class AdminScheduleController extends Controller
 
             if ($current->lte($endDate)) {
                 $duration = Carbon::parse($request->end)->diffInMinutes(Carbon::parse($request->start));
-                
+
                 Schedule::create([
                     'student' => $originalSchedule->student,
                     'instructor' => $originalSchedule->instructor,

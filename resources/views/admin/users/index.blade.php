@@ -28,7 +28,7 @@
             <form method="GET" action="{{ route('admin.users.index') }}" class="row g-3">
                 <div class="col-md-3">
                     <label for="search" class="form-label">Search</label>
-                    <input type="text" class="form-control" id="search" name="search" 
+                    <input type="text" class="form-control" id="search" name="search"
                            value="{{ request('search') }}" placeholder="Name, email, phone...">
                 </div>
                 <div class="col-md-2">
@@ -121,7 +121,7 @@
                             <td>{{ $user->id }}</td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="rounded-circle bg-{{ $user->role === 'admin' ? 'danger' : ($user->role === 'instructor' ? 'info' : 'success') }} d-inline-flex align-items-center justify-content-center me-2" 
+                                    <div class="rounded-circle bg-{{ $user->role === 'admin' ? 'danger' : ($user->role === 'instructor' ? 'info' : 'success') }} d-inline-flex align-items-center justify-content-center me-2"
                                          style="width: 2rem; height: 2rem; color: white; font-size: 0.8rem;">
                                         <i class="fas fa-{{ $user->role === 'admin' ? 'crown' : ($user->role === 'instructor' ? 'chalkboard-teacher' : 'graduation-cap') }}"></i>
                                     </div>
@@ -182,7 +182,7 @@
                                     <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete" 
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
                                             onclick="deleteUser({{ $user->id }}, '{{ $user->full_name }}')">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -335,7 +335,7 @@ $(document).ready(function() {
     $('.status-toggle-form').on('submit', function(e) {
         e.preventDefault();
         const form = this;
-        
+
         if (confirm('Are you sure you want to change this user\'s status?')) {
             form.submit();
         }

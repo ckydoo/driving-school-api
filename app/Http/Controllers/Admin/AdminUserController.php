@@ -1,21 +1,28 @@
 <?php
+// app/Http/Controllers/Admin/AdminUserController.php (Updated)
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, School};
+use App\Models\User;
+use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class AdminUserController extends Controller
 {
     public function index(Request $request)
     {
-        $user = auth()->user();
-        $schoolId = $this->getSchoolScope($request);
+        $currentUser = Auth::user();
+        $query = User::with('school');
 
-        $query = User::with('school')
-                    ->when($schoolId, fn($q) => $q->where('school_id', $schoolId));
+        // Scope to current user's permissions
+        if ($currentUser->isSchoolAdmin()) {
+            $query->where('school_id', $currentUser->school_id);
+        }
 
         // Search functionality
         if ($request->filled('search')) {
@@ -38,92 +45,235 @@ class AdminUserController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Super admin can filter by school, regular admin cannot
-        if ($request->filled('school_id') && $user->role === 'super_admin') {
+        // Filter by school (only for super admins)
+        if ($request->filled('school_id') && $currentUser->isSuperAdmin()) {
             $query->where('school_id', $request->school_id);
         }
 
         $users = $query->orderBy('created_at', 'desc')->paginate(20);
         
-        // Schools dropdown (only for super admin)
-        $schools = $user->role === 'super_admin' ? School::orderBy('name')->get() : collect();
+        // Get schools based on user permissions
+        $schools = $currentUser->isSuperAdmin() 
+            ? School::orderBy('name')->get()
+            : collect([$currentUser->school]);
 
-        return view('admin.users.index', compact('users', 'schools'));
+        return view('admin.users.index', compact('users', 'schools', 'currentUser'));
     }
 
     public function create()
     {
-        $user = auth()->user();
-        $schoolId = $this->getSchoolScope();
+        $currentUser = Auth::user();
         
-        // If regular admin, they can only create users for their school
-        if ($schoolId) {
-            $schools = School::where('id', $schoolId)->get();
-        } else {
-            // Super admin can create users for any school
-            $schools = School::orderBy('name')->get();
-        }
-        
-        return view('admin.users.create', compact('schools'));
+        // Get available schools based on permissions
+        $schools = $currentUser->isSuperAdmin() 
+            ? School::orderBy('name')->get()
+            : collect([$currentUser->school]);
+
+        // Available roles based on user permissions
+        $availableRoles = $this->getAvailableRoles($currentUser);
+
+        return view('admin.users.create', compact('schools', 'availableRoles', 'currentUser'));
     }
 
     public function store(Request $request)
     {
-        $user = auth()->user();
-        $schoolId = $this->getSchoolScope();
+        $currentUser = Auth::user();
+        
+        $validator = Validator::make($request->all(), [
+            'fname' => 'required|string|max:255',
+            'lname' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'date_of_birth' => 'required|date',
+            'role' => ['required', Rule::in($this->getAvailableRoles($currentUser))],
+            'status' => 'required|in:active,inactive,suspended',
+            'gender' => 'required|in:male,female,other',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'idnumber' => 'nullable|string|unique:users,idnumber',
+            'school_id' => $this->getSchoolValidationRule($currentUser),
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $userData = $request->all();
+        $userData['password'] = Hash::make($request->password);
+
+        // Set school_id based on user permissions
+        if ($currentUser->isSchoolAdmin()) {
+            $userData['school_id'] = $currentUser->school_id;
+        } elseif (!$currentUser->isSuperAdmin() || $request->role === 'super_admin') {
+            $userData['school_id'] = null;
+        }
+
+        User::create($userData);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'User created successfully!');
+    }
+
+    public function show(User $user)
+    {
+        $currentUser = Auth::user();
+        
+        // Check if user can view this user
+        if (!$this->canAccessUser($currentUser, $user)) {
+            abort(403, 'Access denied.');
+        }
+
+        $user->load(['school', 'studentSchedules.instructor', 'instructorSchedules.student', 'invoices', 'payments']);
+        
+        $stats = [
+            'total_schedules' => $user->studentSchedules->count() + $user->instructorSchedules->count(),
+            'completed_lessons' => $user->studentSchedules->where('status', 'completed')->count(),
+            'total_invoices' => $user->invoices->count(),
+            'paid_amount' => $user->payments->where('status', 'completed')->sum('amount'),
+        ];
+
+        return view('admin.users.show', compact('user', 'stats', 'currentUser'));
+    }
+
+    public function edit(User $user)
+    {
+        $currentUser = Auth::user();
+        
+        // Check if user can edit this user
+        if (!$this->canAccessUser($currentUser, $user)) {
+            abort(403, 'Access denied.');
+        }
+
+        $schools = $currentUser->isSuperAdmin() 
+            ? School::orderBy('name')->get()
+            : collect([$currentUser->school]);
+
+        $availableRoles = $this->getAvailableRoles($currentUser);
+
+        return view('admin.users.edit', compact('user', 'schools', 'availableRoles', 'currentUser'));
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $currentUser = Auth::user();
+        
+        // Check if user can edit this user
+        if (!$this->canAccessUser($currentUser, $user)) {
+            abort(403, 'Access denied.');
+        }
 
         $validator = Validator::make($request->all(), [
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'phone' => 'required|string|max:15',
-            'role' => 'required|in:student,instructor,admin',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'password' => 'nullable|string|min:8|confirmed',
+            'date_of_birth' => 'required|date',
+            'role' => ['required', Rule::in($this->getAvailableRoles($currentUser))],
             'status' => 'required|in:active,inactive,suspended',
-            'school_id' => 'required|exists:schools,id',
-            'password' => 'required|string|min:8|confirmed',
+            'gender' => 'required|in:male,female,other',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:500',
+            'idnumber' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
+            'school_id' => $this->getSchoolValidationRule($currentUser),
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()
-                           ->withErrors($validator)
-                           ->withInput();
+            return back()->withErrors($validator)->withInput();
         }
 
-        // Prevent regular admins from creating users outside their school
-        if ($schoolId && $request->school_id != $schoolId) {
-            return redirect()->back()
-                           ->with('error', 'You can only create users for your school')
-                           ->withInput();
+        $userData = $request->except(['password', 'password_confirmation']);
+        
+        if ($request->filled('password')) {
+            $userData['password'] = Hash::make($request->password);
         }
 
-        User::create([
-            'fname' => $request->fname,
-            'lname' => $request->lname,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'role' => $request->role,
-            'status' => $request->status,
-            'school_id' => $request->school_id,
-            'password' => Hash::make($request->password),
-        ]);
+        // Restrict school changes for school admins
+        if ($currentUser->isSchoolAdmin()) {
+            $userData['school_id'] = $currentUser->school_id;
+        }
+
+        $user->update($userData);
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('success', 'User updated successfully!');
+    }
+
+    public function destroy(User $user)
+    {
+        $currentUser = Auth::user();
+        
+        // Check if user can delete this user
+        if (!$this->canAccessUser($currentUser, $user)) {
+            abort(403, 'Access denied.');
+        }
+
+        // Prevent deletion of users with schedules
+        if ($user->studentSchedules->count() > 0 || $user->instructorSchedules->count() > 0) {
+            return back()->with('error', 'Cannot delete user with existing schedules.');
+        }
+
+        // Prevent school admins from deleting super admins
+        if ($currentUser->isSchoolAdmin() && $user->isSuperAdmin()) {
+            abort(403, 'Cannot delete super administrator.');
+        }
+
+        $user->delete();
 
         return redirect()->route('admin.users.index')
-                        ->with('success', 'User created successfully.');
+            ->with('success', 'User deleted successfully!');
     }
 
-    /**
-     * Get the school scope based on user role
-     */
-    private function getSchoolScope()
+    public function toggleStatus(User $user)
     {
-        $user = auth()->user();
+        $currentUser = Auth::user();
         
-        // Super admin sees everything
-        if ($user->role === 'super_admin') {
-            return null;
+        if (!$this->canAccessUser($currentUser, $user)) {
+            abort(403, 'Access denied.');
         }
-        
-        // Regular admin sees only their school
-        return $user->school_id;
+
+        $newStatus = $user->status === 'active' ? 'inactive' : 'active';
+        $user->update(['status' => $newStatus]);
+
+        return back()->with('success', "User status updated to {$newStatus}!");
+    }
+
+    // === HELPER METHODS ===
+
+    private function canAccessUser($currentUser, $targetUser): bool
+    {
+        // Super admins can access all users
+        if ($currentUser->isSuperAdmin()) {
+            return true;
+        }
+
+        // School admins can only access users from their school
+        if ($currentUser->isSchoolAdmin()) {
+            return $targetUser->school_id === $currentUser->school_id;
+        }
+
+        return false;
+    }
+
+    private function getAvailableRoles($currentUser): array
+    {
+        if ($currentUser->isSuperAdmin()) {
+            return ['super_admin', 'admin', 'instructor', 'student'];
+        }
+
+        if ($currentUser->isSchoolAdmin()) {
+            return ['instructor', 'student']; // School admins can't create other admins
+        }
+
+        return ['student']; // Fallback
+    }
+
+    private function getSchoolValidationRule($currentUser): string
+    {
+        if ($currentUser->isSuperAdmin()) {
+            return 'nullable|exists:schools,id';
+        }
+
+        return 'required|exists:schools,id|in:' . $currentUser->school_id;
     }
 }
+
