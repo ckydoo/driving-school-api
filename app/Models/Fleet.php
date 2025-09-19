@@ -34,7 +34,7 @@ class Fleet extends Model
 
     public function schedules()
     {
-        return $this->hasMany(Schedule::class, 'vehicle');
+        return $this->hasMany(Schedule::class, 'car');
     }
 
     // Scopes

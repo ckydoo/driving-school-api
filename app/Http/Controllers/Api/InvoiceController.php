@@ -50,12 +50,12 @@ class InvoiceController extends BaseController
         }
 
         // Generate invoice number
-        $invoiceNumber = 'INV-' . date('Y') . '-' . str_pad(Invoice::count() + 1, 6, '0', STR_PAD_LEFT);
+        $invoice_number = 'INV-' . date('Y') . '-' . str_pad(Invoice::count() + 1, 6, '0', STR_PAD_LEFT);
 
         $totalAmount = $request->lessons * $request->price_per_lesson;
 
         $invoice = Invoice::create([
-            'invoice_number' => $invoiceNumber,
+            'invoice_number' => $invoice_number,
             'student' => $request->student,
             'course' => $request->course,
             'lessons' => $request->lessons,

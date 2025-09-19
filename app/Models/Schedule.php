@@ -54,9 +54,9 @@ public function course()  // was courseInfo()
     return $this->belongsTo(Course::class, 'course');
 }
 
-public function vehicle()  // was vehicleInfo()
+public function car()  // was carInfo()
 {
-    return $this->belongsTo(Fleet::class, 'vehicle');
+    return $this->belongsTo(Fleet::class, 'car');
 }
 
 

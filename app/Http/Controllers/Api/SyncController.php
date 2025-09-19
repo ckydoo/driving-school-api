@@ -123,8 +123,6 @@ private function processIndividualItem($type, $data, $operation)
 }
 
 
-
-
 public function upload(Request $request)
 {
     DB::beginTransaction();
@@ -133,59 +131,72 @@ public function upload(Request $request)
         $currentUser = auth()->user();
         $schoolId = $currentUser->school_id;
 
-        Log::info('Sync upload request', [
-            'user_id' => $currentUser->id,
-            'school_id' => $schoolId,
-            'data_types' => array_keys($request->all())
-        ]);
-
         if (!$schoolId) {
             return $this->sendError('User does not belong to any school.', [], 400);
         }
 
-        $uploaded = 0;
-        $errors = [];
-        $successfulItems = []; // ✅ INITIALIZE THIS ARRAY
+        $results = [];
+        $allErrors = [];
+        $totalUploaded = 0;
 
-        // Process data types in dependency order
-        $dataTypes = ['users', 'courses', 'fleet', 'invoices', 'schedules', 'payments'];
-        
-        foreach ($dataTypes as $type) {
+        // ✅ CRITICAL: Process in this exact order to avoid foreign key errors
+        $processingOrder = [
+            'users',      // First: Create users
+            'courses',    // Second: Create courses  
+            'fleet',      // Third: Create vehicles
+            'invoices',   // Fourth: Create invoices (BEFORE payments)
+            'payments',   // Fifth: Create payments (AFTER invoices)
+            'schedules',  // Last: Create schedules (they reference everything)
+        ];
+
+        foreach ($processingOrder as $type) {
             if ($request->has($type)) {
-                $result = $this->processDataType($type, $request->$type, $schoolId);
-                $uploaded += $result['uploaded'];
+                Log::info("Processing {$type} data");
                 
-                // ✅ COLLECT SUCCESSFUL ITEMS
-                if (isset($result['successful_items'])) {
-                    $successfulItems = array_merge($successfulItems, $result['successful_items']);
-                }
+                $result = $this->processDataType($type, $request->input($type), $schoolId);
+                $results[$type] = $result;
+                $totalUploaded += $result['uploaded'];
                 
                 if (!empty($result['errors'])) {
-                    $errors[$type] = $result['errors'];
+                    $allErrors[$type] = $result['errors'];
+                }
+
+                // Stop processing if critical errors in invoices (before payments)
+                if ($type === 'invoices' && !empty($result['errors'])) {
+                    Log::warning("Invoice errors detected, skipping payment processing to avoid foreign key errors");
+                    break;
                 }
             }
         }
 
-        if (empty($errors)) {
-            DB::commit();
-            return $this->sendResponse([
-                'uploaded' => $uploaded,
-                'successful_items' => $successfulItems, // ✅ INCLUDE IN RESPONSE
-                'timestamp' => now()->toISOString()
-            ], 'Data uploaded successfully.');
-        } else {
-            DB::commit(); // Still commit partial successes
-            return response()->json([
-                'success' => false,
-                'message' => 'Upload partially failed.',
+        // Check if we have critical errors that should cause rollback
+        $hasCriticalErrors = $this->checkForCriticalErrors($allErrors);
+        
+        if ($hasCriticalErrors && $totalUploaded === 0) {
+            DB::rollback();
+            return $this->sendError('Upload failed completely due to critical errors.', [
                 'data' => [
-                    'uploaded' => $uploaded,
-                    'errors' => $errors,
-                    'successful_items' => $successfulItems, // ✅ INCLUDE EVEN ON PARTIAL FAILURE
-                    'timestamp' => now()->toISOString()
+                    'uploaded' => $totalUploaded,
+                    'errors' => $allErrors,
                 ]
             ], 422);
         }
+
+        DB::commit();
+
+        $responseMessage = empty($allErrors) ? 'Upload successful.' : 'Upload partially failed.';
+        $responseCode = empty($allErrors) ? 200 : 422;
+
+        return response()->json([
+            'success' => $totalUploaded > 0,
+            'message' => $responseMessage,
+            'data' => [
+                'uploaded' => $totalUploaded,
+                'errors' => $allErrors,
+                'successful_items' => [], // You can populate this if needed
+                'timestamp' => now()->toISOString(),
+            ]
+        ], $responseCode);
 
     } catch (\Exception $e) {
         DB::rollback();
@@ -194,10 +205,7 @@ public function upload(Request $request)
             'trace' => $e->getTraceAsString()
         ]);
         
-        return $this->sendError('Upload failed.', [
-            'error' => $e->getMessage(),
-            'successful_items' => [], // ✅ INCLUDE EVEN ON COMPLETE FAILURE
-        ], 500);
+        return $this->sendError('Upload failed.', ['error' => $e->getMessage()], 500);
     }
 }
 
@@ -452,7 +460,13 @@ private function upsertSchedule($data, $operation)
             'student' => $data['student_id'] ?? $data['student'] ?? null,
             'instructor' => $data['instructor_id'] ?? $data['instructor'] ?? null,
             'course' => $data['course_id'] ?? $data['course'] ?? null,
-            'vehicle' => $data['vehicle_id'] ?? $data['car'] ?? null,
+            'car' => $data['vehicle_id'] ?? $data['car'] ?? null,
+            'is_recurring' => $data['is_recurring'] ?? 0,
+            'recurring_pattern' => $data['recurring_pattern'] ?? null,
+            'recurring_end_date ' => $data['recurring_end_date'] ?? null,
+            'attended' => $data['attended'] ?? 0,
+            'lessons_deducted' => $data['lessons_deducted'] ?? 0,
+            'lessons_completed' => $data['lessons_completed'] ?? 0,
             'start' => $data['start'],
             'end' => $data['end'],
             'status' => $data['status'] ?? 'scheduled',
@@ -463,6 +477,8 @@ private function upsertSchedule($data, $operation)
     );
 }
 
+
+
 private function upsertInvoice($data, $operation)
 {
     if ($operation === 'delete') {
@@ -470,22 +486,73 @@ private function upsertInvoice($data, $operation)
         return;
     }
 
+    // ✅ CRITICAL FIX: For partial updates, use direct update instead of updateOrCreate
+    if ($operation === 'update') {
+        // Check if record exists first
+        $existingInvoice = Invoice::where('id', $data['id'])->first();
+        
+        if (!$existingInvoice) {
+            throw new \Exception("Cannot update invoice {$data['id']} - invoice does not exist");
+        }
+        
+        // Build update array with only the fields that are present
+        $updateData = [];
+        
+        if (array_key_exists('amountpaid', $data)) {
+            $updateData['amountpaid'] = $data['amountpaid'];
+        }
+        
+        if (array_key_exists('status', $data)) {
+            $updateData['status'] = $data['status'];
+        }
+        
+        if (array_key_exists('total_amount', $data)) {
+            $updateData['total_amount'] = $data['total_amount'];
+        }
+        
+        if (array_key_exists('lessons', $data)) {
+            $updateData['lessons'] = $data['lessons'];
+        }
+        
+        if (array_key_exists('price_per_lesson', $data)) {
+            $updateData['price_per_lesson'] = $data['price_per_lesson'];
+        }
+        
+        if (array_key_exists('due_date', $data)) {
+            $updateData['due_date'] = $data['due_date'];
+        }
+        
+        // Only update if we have data to update
+        if (!empty($updateData)) {
+            $existingInvoice->update($updateData);
+        }
+        
+        return;
+    }
+    
+    // For CREATE operations, use updateOrCreate with all required fields
+    $updateFields = [
+        'school_id' => $data['school_id'],
+    ];
+    
+    // Set required fields with defaults for create operations
+    $updateFields['invoice_number'] = $data['invoice_number'] ?? 'AUTO-' . time();
+    $updateFields['student'] = $data['student'] ?? $data['student_id'] ?? null;
+    $updateFields['course'] = $data['course'] ?? $data['course_id'] ?? null;
+    $updateFields['lessons'] = $data['lessons'] ?? 1;
+    $updateFields['price_per_lesson'] = $data['price_per_lesson'] ?? 0;
+    $updateFields['total_amount'] = $data['total_amount'] ?? $data['amount'] ?? 0;
+    $updateFields['amountpaid'] = $data['amountpaid'] ?? 0;
+    $updateFields['status'] = $data['status'] ?? 'unpaid';
+    $updateFields['due_date'] = $data['due_date'] ?? now()->addDays(30);
+    
     Invoice::updateOrCreate(
         ['id' => $data['id']],
-        [
-            'student' => $data['student_id'] ?? $data['student'] ?? null,
-            'course' => $data['course_id'] ?? $data['course'] ?? null,
-            'lessons' => $data['lessons'] ?? $data['lessons'],
-            'amountpaid' => $data['amountpaid'] ?? $data['amountpaid'],
-            'invoice_number' => $data['invoice_number'] ?? $data['invoice_number'],
-            'price_per_lesson' => $data['price_per_lesson'] ?? $data['price_per_lesson'],
-            'total_amount' => $data['total_amount'] ?? $data['amount'] ?? 0,
-            'status' => $data['status'] ?? 'pending',
-            'due_date' => $data['due_date'] ?? null,
-            'school_id' => $data['school_id'],
-        ]
+        $updateFields
     );
 }
+
+// ALSO REPLACE your upsertPayment method to handle the same issue:
 
 private function upsertPayment($data, $operation)
 {
@@ -494,16 +561,71 @@ private function upsertPayment($data, $operation)
         return;
     }
 
+    // ✅ CRITICAL: Check if invoice exists first (to avoid foreign key errors)
+    if (isset($data['invoiceId'])) {
+        $invoiceExists = Invoice::where('id', $data['invoiceId'])->exists();
+        if (!$invoiceExists) {
+            // Instead of throwing an error, log it and skip this payment
+            Log::warning("Skipping payment {$data['id']} - Invoice {$data['invoiceId']} does not exist");
+            return;
+        }
+    }
+
+    // ✅ CRITICAL FIX: For partial updates, use direct update instead of updateOrCreate
+    if ($operation === 'update') {
+        $existingPayment = Payment::where('id', $data['id'])->first();
+        
+        if (!$existingPayment) {
+            throw new \Exception("Cannot update payment {$data['id']} - payment does not exist");
+        }
+        
+        $updateData = [];
+        
+        if (array_key_exists('receipt_path', $data)) {
+            $updateData['receipt_path'] = $data['receipt_path'];
+        }
+        
+        if (array_key_exists('receipt_generated', $data)) {
+            $updateData['receipt_generated'] = $data['receipt_generated'];
+        }
+        
+        if (array_key_exists('amount', $data)) {
+            $updateData['amount'] = $data['amount'];
+        }
+        
+        if (array_key_exists('notes', $data)) {
+            $updateData['notes'] = $data['notes'];
+        }
+        
+        if (array_key_exists('status', $data)) {
+            $updateData['status'] = $data['status'];
+        }
+        
+        // Only update if we have data to update
+        if (!empty($updateData)) {
+            $existingPayment->update($updateData);
+        }
+        
+        return;
+    }
+
+    // For CREATE operations, ensure all required fields are present
+    $updateFields = [];
+    
+    $updateFields['invoiceId'] = $data['invoiceId'] ?? null;  // Your table uses 'invoiceId'
+    $updateFields['amount'] = $data['amount'] ?? 0;
+    $updateFields['method'] = $data['method'] ?? 'cash';  // Your table uses 'method'
+    $updateFields['paymentDate'] = $data['created_at'] ?? now();  // Your table uses 'paymentDate'
+    $updateFields['status'] = $data['status'] ?? 'completed';
+    $updateFields['notes'] = $data['notes'] ?? null;
+    $updateFields['reference'] = $data['reference'] ?? null;
+    $updateFields['receipt_path'] = $data['receipt_path'] ?? null;
+    $updateFields['receipt_generated'] = $data['receipt_generated'] ?? false;
+    $updateFields['userId'] = $data['userId'] ?? null;  // Your table uses 'userId'
+
     Payment::updateOrCreate(
         ['id' => $data['id']],
-        [
-            'invoiceId' => $data['invoiceId'] ?? null,
-            'student_id' => $data['student_id'] ?? null,
-            'amount' => $data['amount'] ?? 0,
-            'method' => $data['method'] ?? 'cash',
-            'payment_date' => $data['payment_date'] ?? now(),
-            'status' => $data['status'] ?? 'completed',
-        ]
+        $updateFields
     );
 }
 
