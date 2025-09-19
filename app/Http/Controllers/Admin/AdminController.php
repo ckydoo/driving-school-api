@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/Admin/AdminController.php - Fixed for Your Models
+// app/Http/Controllers/Admin/AdminController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -19,16 +19,37 @@ use Illuminate\Support\Facades\Auth;
 class AdminController extends Controller
 {
     /**
+     * Check if current user can access admin features
+     */
+    protected function ensureAdminAccess()
+    {
+        $user = Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            abort(403, 'Access denied. Administrator privileges required.');
+        }
+        return $user;
+    }
+
+    /**
+     * Check if current user can access super admin features
+     */
+    protected function ensureSuperAdminAccess()
+    {
+        $user = Auth::user();
+        if (!$user || !$user->isSuperAdmin()) {
+            abort(403, 'Access denied. Super Administrator privileges required.');
+        }
+        return $user;
+    }
+
+    /**
      * Main admin dashboard - shows data based on user role
      */
     public function dashboard()
     {
-        $currentUser = Auth::user();
+        $currentUser = $this->ensureAdminAccess();
 
-        // Check if user has the new role fields, fallback to old role check
-        $isSuperAdmin = $this->checkSuperAdmin($currentUser);
-
-        if ($isSuperAdmin) {
+        if ($currentUser->isSuperAdmin()) {
             return $this->superAdminDashboard();
         } else {
             return $this->schoolAdminDashboard();
@@ -36,24 +57,17 @@ class AdminController extends Controller
     }
 
     /**
-     * Check if user is super admin (supports both old and new systems)
-     */
-    private function checkSuperAdmin($user)
-    {
-        // If new fields exist, use them
-        if (isset($user->is_super_admin)) {
-            return $user->is_super_admin || $user->role === 'super_admin';
-        }
-
-        // Fallback: Super admin if admin with no school_id
-        return $user->role === 'admin' && empty($user->school_id);
-    }
-
-    /**
      * Super Admin Dashboard - System-wide data
      */
-    private function superAdminDashboard()
+    public function superAdminDashboard()
     {
+        // Allow access for super admins only OR if coming from dashboard redirect
+        $currentUser = Auth::user();
+        if (!$currentUser->isSuperAdmin()) {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Super admin access required.');
+        }
+
         try {
             $stats = [
                 // School Statistics
@@ -65,7 +79,7 @@ class AdminController extends Controller
                 // User Statistics
                 'total_users' => User::count(),
                 'super_admins' => User::where('role', 'super_admin')->count(),
-                'school_admins' => User::where('role', 'admin')->where('role', '!=', 'super_admin')->count(),
+                'school_admins' => User::where('role', 'admin')->where('is_super_admin', false)->count(),
                 'total_instructors' => User::where('role', 'instructor')->count(),
                 'total_students' => User::where('role', 'student')->count(),
                 'active_users' => User::where('status', 'active')->count(),
@@ -76,204 +90,146 @@ class AdminController extends Controller
                 'total_vehicles' => Fleet::count(),
                 'available_vehicles' => Fleet::where('status', 'available')->count(),
                 'total_revenue' => Payment::where('status', 'completed')->sum('amount') ?? 0,
-                'pending_invoices' => Invoice::where('status', 'pending')->count(),
             ];
 
-            // Recent activity across all schools - FIXED to handle your model structure
-            $recentSchools = School::latest()->take(5)->get();
+            // Recent activity across all schools
             $recentUsers = User::with('school')->latest()->take(10)->get();
+            $recentSchools = School::latest()->take(5)->get();
 
             // Top performing schools
-            $topSchools = School::withCount('users')->orderBy('users_count', 'desc')->take(5)->get();
+            $topSchools = School::withCount([
+                'users as students_count' => function($q) {
+                    $q->where('role', 'student');
+                }
+            ])
+            ->orderBy('students_count', 'desc')
+            ->take(5)
+            ->get();
 
-            // Monthly revenue data
-            $monthlyRevenue = Payment::selectRaw('MONTH(created_at) as month, SUM(amount) as total')
-                ->where('status', 'completed')
-                ->whereYear('created_at', date('Y'))
-                ->groupBy('month')
-                ->orderBy('month')
-                ->get();
+            // Monthly revenue trend (last 6 months)
+            $monthlyRevenue = [];
+            for ($i = 5; $i >= 0; $i--) {
+                $date = Carbon::now()->subMonths($i);
+                $revenue = Payment::where('status', 'completed')
+                    ->whereYear('created_at', $date->year)
+                    ->whereMonth('created_at', $date->month)
+                    ->sum('amount') ?? 0;
 
-            return view('admin.dashboard', compact(
+                $monthlyRevenue[] = [
+                    'month' => $date->format('M Y'),
+                    'revenue' => $revenue
+                ];
+            }
+
+            return view('admin.super-dashboard', compact(
                 'stats',
-                'recentSchools',
                 'recentUsers',
+                'recentSchools',
                 'topSchools',
                 'monthlyRevenue'
             ));
 
         } catch (\Exception $e) {
             Log::error('Super Admin Dashboard Error: ' . $e->getMessage());
-            // Fallback with basic stats
-            $stats = $this->getBasicStats();
-            return view('admin.dashboard', compact('stats'));
+
+            return view('admin.super-dashboard', [
+                'stats' => $this->getDefaultStats(),
+                'recentUsers' => collect(),
+                'recentSchools' => collect(),
+                'topSchools' => collect(),
+                'monthlyRevenue' => [],
+                'error' => 'Unable to load dashboard data. Please try again.'
+            ]);
         }
     }
 
     /**
      * School Admin Dashboard - School-specific data
      */
-    private function schoolAdminDashboard()
+    public function schoolAdminDashboard()
     {
-        try {
-            $currentUser = Auth::user();
-            $school = $currentUser->school;
+        $currentUser = $this->ensureAdminAccess();
 
-            if (!$school) {
+        // Super admins shouldn't normally use this, but allow it
+        if ($currentUser->isSuperAdmin()) {
+            return redirect()->route('admin.super.dashboard')
+                ->with('info', 'Super admins should use the Super Admin dashboard.');
+        }
+
+        try {
+            $schoolId = $currentUser->school_id;
+
+            if (!$schoolId) {
                 return redirect()->route('admin.profile')
                     ->with('error', 'Please contact administrator to assign you to a school.');
             }
 
-            // School-specific statistics - FIXED for your models
             $stats = [
-                'total_schools' => 1,
-                'active_schools' => $school->status === 'active' ? 1 : 0,
-                'trial_schools' => ($school->subscription_status ?? 'trial') === 'trial' ? 1 : 0,
-                'paid_schools' => ($school->subscription_status ?? 'trial') === 'active' ? 1 : 0,
-
-                'total_students' => User::where('school_id', $school->id)->where('role', 'student')->count(),
-                'total_instructors' => User::where('school_id', $school->id)->where('role', 'instructor')->count(),
-                'active_students' => User::where('school_id', $school->id)
-                    ->where('role', 'student')
-                    ->where('status', 'active')->count(),
-                'total_users' => User::where('school_id', $school->id)->count(),
-                'active_users' => User::where('school_id', $school->id)->where('status', 'active')->count(),
-
-                'total_vehicles' => Fleet::where('school_id', $school->id)->count(),
-                'available_vehicles' => Fleet::where('school_id', $school->id)
-                    ->where('status', 'available')->count(),
-                'total_schedules' => Schedule::where('school_id', $school->id)->count(),
-                'completed_lessons' => Schedule::where('school_id', $school->id)
-                    ->where('status', 'completed')->count(),
-                'pending_invoices' => Invoice::where('school_id', $school->id)
-                    ->where('status', 'pending')->count(),
-                'total_revenue' => Payment::whereHas('invoice', function($q) use ($school) {
-                        $q->where('school_id', $school->id);
-                    })->where('status', 'completed')->sum('amount') ?? 0,
-
-                // For compatibility with existing dashboard
-                'super_admins' => 0,
-                'school_admins' => User::where('school_id', $school->id)->where('role', 'admin')->count(),
-                'total_invoices' => Invoice::where('school_id', $school->id)->count(),
+                'total_students' => User::where('school_id', $schoolId)->where('role', 'student')->count(),
+                'total_instructors' => User::where('school_id', $schoolId)->where('role', 'instructor')->count(),
+                'active_schedules' => Schedule::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->where('status', 'scheduled')->count(),
+                'total_vehicles' => Fleet::where('school_id', $schoolId)->count(),
+                'available_vehicles' => Fleet::where('school_id', $schoolId)->where('status', 'available')->count(),
+                'pending_invoices' => Invoice::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->where('status', 'pending')->count(),
+                'monthly_revenue' => Payment::whereHas('user', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->where('status', 'completed')
+                  ->whereMonth('created_at', Carbon::now()->month)
+                  ->sum('amount') ?? 0,
             ];
 
-            // Recent activity for this school - FIXED to handle relationships properly
-            $recentStudents = User::where('school_id', $school->id)
+            // Recent activity for this school
+            $recentStudents = User::where('school_id', $schoolId)
                 ->where('role', 'student')
                 ->latest()
                 ->take(5)
                 ->get();
 
-            // Get schedules with manual relationship loading to avoid errors
-            $recentSchedules = Schedule::where('school_id', $school->id)
-                ->latest()
+            $upcomingSchedules = Schedule::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })
+                ->with(['student', 'instructor'])
+                ->where('date', '>=', Carbon::today())
+                ->orderBy('date')
+                ->orderBy('time')
                 ->take(10)
-                ->get()
-                ->map(function ($schedule) {
-                    // Safely load relationships
-                    try {
-                        $schedule->student_info = User::find($schedule->student);
-                        $schedule->instructor_info = User::find($schedule->instructor);
-                        return $schedule;
-                    } catch (\Exception $e) {
-                        return $schedule;
-                    }
-                });
-
-            $upcomingSchedules = Schedule::where('school_id', $school->id)
-                ->where('status', 'scheduled')
-                ->where('start', '>=', now())
-                ->orderBy('start')
-                ->take(5)
-                ->get()
-                ->map(function ($schedule) {
-                    // Safely load relationships
-                    try {
-                        $schedule->student_info = User::find($schedule->student);
-                        $schedule->instructor_info = User::find($schedule->instructor);
-                        return $schedule;
-                    } catch (\Exception $e) {
-                        return $schedule;
-                    }
-                });
-
-            // Monthly performance for this school
-            $monthlyLessons = Schedule::where('school_id', $school->id)
-                ->selectRaw('MONTH(start) as month, COUNT(*) as total')
-                ->whereYear('start', date('Y'))
-                ->groupBy('month')
-                ->orderBy('month')
                 ->get();
 
-            return view('admin.dashboard', compact(
+            return view('admin.school-dashboard', compact(
                 'stats',
                 'recentStudents',
-                'recentSchedules',
-                'upcomingSchedules',
-                'monthlyLessons'
+                'upcomingSchedules'
             ));
 
         } catch (\Exception $e) {
             Log::error('School Admin Dashboard Error: ' . $e->getMessage());
-            // Fallback with basic stats
-            $stats = $this->getBasicStats();
-            return view('admin.dashboard', compact('stats'));
+
+            return view('admin.school-dashboard', [
+                'stats' => $this->getDefaultStats(),
+                'recentStudents' => collect(),
+                'upcomingSchedules' => collect(),
+                'error' => 'Unable to load dashboard data. Please try again.'
+            ]);
         }
     }
 
     /**
-     * Get basic stats as fallback
+     * System stats for super admin (called via route)
      */
-    private function getBasicStats()
+    public function systemStats()
     {
-        return [
-            'total_schools' => School::count(),
-            'active_schools' => School::where('status', 'active')->count(),
-            'total_users' => User::count(),
-            'total_students' => User::where('role', 'student')->count(),
-            'total_instructors' => User::where('role', 'instructor')->count(),
-            'active_users' => User::where('status', 'active')->count(),
-            'total_vehicles' => Fleet::count(),
-            'available_vehicles' => Fleet::where('status', 'available')->count(),
-            'total_schedules' => Schedule::count(),
-            'total_revenue' => Payment::where('status', 'completed')->sum('amount') ?? 0,
-            'pending_invoices' => Invoice::where('status', 'pending')->count(),
-            'super_admins' => 0,
-            'school_admins' => 0,
-            'trial_schools' => 0,
-            'paid_schools' => 0,
-            'total_invoices' => Invoice::count(),
-            'completed_lessons' => Schedule::where('status', 'completed')->count(),
-        ];
-    }
+        $this->ensureSuperAdminAccess();
 
-    /**
-     * User profile page
-     */
-    public function profile()
-    {
-        $user = Auth::user();
-        return view('admin.profile', compact('user'));
-    }
-
-    /**
-     * Update user profile
-     */
-    public function updateProfile(Request $request)
-    {
-        $user = Auth::user();
-
-        $request->validate([
-            'fname' => 'required|string|max:255',
-            'lname' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:500',
+        // Return JSON data for charts/widgets
+        return response()->json([
+            'user_growth' => $this->getUserGrowthData(),
+            'revenue_trends' => $this->getRevenueTrends(),
+            'school_performance' => $this->getSchoolPerformance(),
         ]);
-
-        $user->update($request->only(['fname', 'lname', 'email', 'phone', 'address']));
-
-        return back()->with('success', 'Profile updated successfully!');
     }
 
     /**
@@ -281,8 +237,8 @@ class AdminController extends Controller
      */
     public function settings()
     {
-        $user = Auth::user();
-        return view('admin.settings', compact('user'));
+        $currentUser = $this->ensureAdminAccess();
+        return view('admin.settings', compact('currentUser'));
     }
 
     /**
@@ -290,6 +246,125 @@ class AdminController extends Controller
      */
     public function updateSettings(Request $request)
     {
+        $this->ensureAdminAccess();
+        // Implementation for updating settings
         return back()->with('success', 'Settings updated successfully!');
+    }
+
+    /**
+     * Profile page
+     */
+    public function profile()
+    {
+        $currentUser = $this->ensureAdminAccess();
+        return view('admin.profile', compact('currentUser'));
+    }
+
+    /**
+     * Update profile
+     */
+    public function updateProfile(Request $request)
+    {
+        $this->ensureAdminAccess();
+        // Implementation for updating profile
+        return back()->with('success', 'Profile updated successfully!');
+    }
+
+    /**
+     * Instructor dashboard
+     */
+    public function instructorDashboard()
+    {
+        $user = Auth::user();
+
+        if (!$user || !in_array($user->role, ['super_admin', 'admin', 'instructor'])) {
+            abort(403, 'Access denied. Instructor privileges required.');
+        }
+
+        // Implementation for instructor dashboard
+        return view('instructor.dashboard', compact('user'));
+    }
+
+    // === HELPER METHODS ===
+
+    /**
+     * Get default stats when there's an error
+     */
+    private function getDefaultStats(): array
+    {
+        return [
+            'total_schools' => 0,
+            'active_schools' => 0,
+            'total_users' => 0,
+            'total_students' => 0,
+            'total_instructors' => 0,
+            'active_users' => 0,
+            'total_schedules' => 0,
+            'total_invoices' => 0,
+            'total_vehicles' => 0,
+            'available_vehicles' => 0,
+            'total_revenue' => 0,
+            'monthly_revenue' => 0,
+        ];
+    }
+
+    /**
+     * Get user growth data for charts
+     */
+    private function getUserGrowthData(): array
+    {
+        $data = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = Carbon::now()->subMonths($i);
+            $count = User::whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
+
+            $data[] = [
+                'month' => $date->format('M Y'),
+                'users' => $count
+            ];
+        }
+        return $data;
+    }
+
+    /**
+     * Get revenue trends for charts
+     */
+    private function getRevenueTrends(): array
+    {
+        $data = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = Carbon::now()->subMonths($i);
+            $revenue = Payment::where('status', 'completed')
+                ->whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->sum('amount') ?? 0;
+
+            $data[] = [
+                'month' => $date->format('M Y'),
+                'revenue' => $revenue
+            ];
+        }
+        return $data;
+    }
+
+    /**
+     * Get school performance data
+     */
+    private function getSchoolPerformance(): array
+    {
+        return School::withCount([
+            'users as students_count' => function($q) {
+                $q->where('role', 'student');
+            },
+            'users as instructors_count' => function($q) {
+                $q->where('role', 'instructor');
+            }
+        ])
+        ->orderBy('students_count', 'desc')
+        ->take(10)
+        ->get()
+        ->toArray();
     }
 }

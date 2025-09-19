@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;  // <- CORRECT NAMESPACE for Admin folder
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -69,8 +69,9 @@ class AdminAuthController extends Controller
                 ])->withInput();
             }
 
-            // Check if user has admin or instructor privileges for admin panel
-            if (isset($user->role) && !in_array($user->role, ['admin', 'instructor'])) {
+            // FIXED: Use the User model's isAdmin() method instead of hardcoded role check
+            // This properly includes super_admin, admin, and instructor roles
+            if (!$user->isAdmin() && !$user->isInstructor()) {
                 Auth::logout();
                 return back()->withErrors([
                     'email' => 'Access denied. Admin or instructor privileges required.',
@@ -80,8 +81,17 @@ class AdminAuthController extends Controller
             // Regenerate session to prevent session fixation
             $request->session()->regenerate();
 
-            // Redirect to intended page or admin dashboard
-            $intended = $request->session()->pull('url.intended', route('admin.dashboard'));
+            // Redirect based on user role
+            $intended = $request->session()->pull('url.intended');
+
+            if (!$intended) {
+                if ($user->isSuperAdmin()) {
+                    $intended = route('admin.super.dashboard');
+                } else {
+                    $intended = route('admin.dashboard');
+                }
+            }
+
             return redirect($intended);
         }
 

@@ -29,12 +29,12 @@
                 <div class="card-body">
                     <form action="{{ route('admin.users.store') }}" method="POST" id="userForm">
                         @csrf
-                        
+
                         <div class="row">
                             <!-- First Name -->
                             <div class="col-md-6 mb-3">
                                 <label for="fname" class="form-label">First Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control @error('fname') is-invalid @enderror" 
+                                <input type="text" class="form-control @error('fname') is-invalid @enderror"
                                        id="fname" name="fname" value="{{ old('fname') }}" required>
                                 @error('fname')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -44,7 +44,7 @@
                             <!-- Last Name -->
                             <div class="col-md-6 mb-3">
                                 <label for="lname" class="form-label">Last Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control @error('lname') is-invalid @enderror" 
+                                <input type="text" class="form-control @error('lname') is-invalid @enderror"
                                        id="lname" name="lname" value="{{ old('lname') }}" required>
                                 @error('lname')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -56,7 +56,7 @@
                             <!-- Email -->
                             <div class="col-md-6 mb-3">
                                 <label for="email" class="form-label">Email Address <span class="text-danger">*</span></label>
-                                <input type="email" class="form-control @error('email') is-invalid @enderror" 
+                                <input type="email" class="form-control @error('email') is-invalid @enderror"
                                        id="email" name="email" value="{{ old('email') }}" required>
                                 @error('email')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -66,7 +66,7 @@
                             <!-- Phone -->
                             <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">Phone Number</label>
-                                <input type="tel" class="form-control @error('phone') is-invalid @enderror" 
+                                <input type="tel" class="form-control @error('phone') is-invalid @enderror"
                                        id="phone" name="phone" value="{{ old('phone') }}">
                                 @error('phone')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -79,7 +79,7 @@
                             <div class="col-md-6 mb-3">
                                 <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <input type="password" class="form-control @error('password') is-invalid @enderror" 
+                                    <input type="password" class="form-control @error('password') is-invalid @enderror"
                                            id="password" name="password" required>
                                     <button type="button" class="btn btn-outline-secondary" id="togglePassword">
                                         <i class="fas fa-eye"></i>
@@ -94,7 +94,7 @@
                             <!-- Confirm Password -->
                             <div class="col-md-6 mb-3">
                                 <label for="password_confirmation" class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                                <input type="password" class="form-control" 
+                                <input type="password" class="form-control"
                                        id="password_confirmation" name="password_confirmation" required>
                             </div>
                         </div>
@@ -103,7 +103,7 @@
                             <!-- Date of Birth -->
                             <div class="col-md-6 mb-3">
                                 <label for="date_of_birth" class="form-label">Date of Birth <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control @error('date_of_birth') is-invalid @enderror" 
+                                <input type="date" class="form-control @error('date_of_birth') is-invalid @enderror"
                                        id="date_of_birth" name="date_of_birth" value="{{ old('date_of_birth') }}" required>
                                 @error('date_of_birth')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -117,7 +117,6 @@
                                     <option value="">Select Gender</option>
                                     <option value="male" {{ old('gender') === 'male' ? 'selected' : '' }}>Male</option>
                                     <option value="female" {{ old('gender') === 'female' ? 'selected' : '' }}>Female</option>
-                                    <option value="other" {{ old('gender') === 'other' ? 'selected' : '' }}>Other</option>
                                 </select>
                                 @error('gender')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -174,7 +173,7 @@
                             <!-- ID Number -->
                             <div class="col-md-6 mb-3">
                                 <label for="idnumber" class="form-label">ID Number</label>
-                                <input type="text" class="form-control @error('idnumber') is-invalid @enderror" 
+                                <input type="text" class="form-control @error('idnumber') is-invalid @enderror"
                                        id="idnumber" name="idnumber" value="{{ old('idnumber') }}">
                                 @error('idnumber')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -186,7 +185,7 @@
                         <!-- Address -->
                         <div class="mb-3">
                             <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control @error('address') is-invalid @enderror" 
+                            <textarea class="form-control @error('address') is-invalid @enderror"
                                       id="address" name="address" rows="3">{{ old('address') }}</textarea>
                             @error('address')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -221,18 +220,18 @@
                         <li><span class="badge bg-info">Instructor</span> - Can manage students, schedules</li>
                         <li><span class="badge bg-danger">Admin</span> - Full system access</li>
                     </ul>
-                    
+
                     <hr>
-                    
+
                     <h6>Status Options:</h6>
                     <ul class="list-unstyled">
                         <li><span class="badge bg-success">Active</span> - Can login and use system</li>
                         <li><span class="badge bg-secondary">Inactive</span> - Account disabled</li>
                         <li><span class="badge bg-danger">Suspended</span> - Temporarily blocked</li>
                     </ul>
-                    
+
                     <hr>
-                    
+
                     <h6>Password Requirements:</h6>
                     <ul class="text-sm">
                         <li>Minimum 8 characters</li>
@@ -272,7 +271,7 @@ $(document).ready(function() {
     $('#togglePassword').click(function() {
         const passwordField = $('#password');
         const icon = $(this).find('i');
-        
+
         if (passwordField.attr('type') === 'password') {
             passwordField.attr('type', 'text');
             icon.removeClass('fa-eye').addClass('fa-eye-slash');
@@ -286,13 +285,13 @@ $(document).ready(function() {
     $('#userForm').submit(function(e) {
         const password = $('#password').val();
         const confirmPassword = $('#password_confirmation').val();
-        
+
         if (password !== confirmPassword) {
             e.preventDefault();
             alert('Passwords do not match!');
             return false;
         }
-        
+
         if (password.length < 8) {
             e.preventDefault();
             alert('Password must be at least 8 characters long!');
@@ -305,18 +304,18 @@ function generatePassword() {
     const length = 12;
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
     let password = "";
-    
+
     for (let i = 0, n = charset.length; i < length; ++i) {
         password += charset.charAt(Math.floor(Math.random() * n));
     }
-    
+
     $('#password').val(password);
     $('#password_confirmation').val(password);
-    
+
     // Show password temporarily
     $('#password').attr('type', 'text');
     $('#togglePassword i').removeClass('fa-eye').addClass('fa-eye-slash');
-    
+
     alert('Generated password: ' + password + '\nPlease copy this password and share it securely with the user.');
 }
 </script>

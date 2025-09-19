@@ -47,7 +47,7 @@ class User extends Authenticatable
     ];
 
     // === RELATIONSHIPS ===
-    
+
     public function school()
     {
         return $this->belongsTo(School::class);
@@ -55,22 +55,22 @@ class User extends Authenticatable
 
     public function studentSchedules()
     {
-        return $this->hasMany(Schedule::class, 'student_id');
+        return $this->hasMany(Schedule::class, 'student');
     }
 
     public function instructorSchedules()
     {
-        return $this->hasMany(Schedule::class, 'instructor_id');
+        return $this->hasMany(Schedule::class, 'instructor');
     }
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'student_id');
+        return $this->hasMany(Invoice::class, 'student');
     }
 
     public function payments()
     {
-        return $this->hasMany(Payment::class, 'user_id');
+        return $this->hasMany(Payment::class, 'userId');
     }
 
     public function assignedVehicles()
@@ -79,7 +79,7 @@ class User extends Authenticatable
     }
 
     // === ROLE HELPER METHODS ===
-    
+
     public function isSuperAdmin(): bool
     {
         return $this->is_super_admin || $this->role === 'super_admin';
@@ -115,16 +115,16 @@ class User extends Authenticatable
         if ($this->isSuperAdmin()) {
             return true;
         }
-        
+
         if ($this->isSchoolAdmin()) {
             return $schoolId ? $this->school_id == $schoolId : true;
         }
-        
+
         return false;
     }
 
     // === SCOPES ===
-    
+
     public function scopeForSchool(Builder $query, $schoolId = null)
     {
         if ($schoolId) {
@@ -161,7 +161,7 @@ class User extends Authenticatable
     }
 
     // === ACCESSORS ===
-    
+
     public function getFullNameAttribute(): string
     {
         return "{$this->fname} {$this->lname}";
@@ -184,7 +184,7 @@ class User extends Authenticatable
     }
 
     // === BOOT METHOD ===
-    
+
     protected static function booted()
     {
         // Auto-set is_super_admin when role is super_admin

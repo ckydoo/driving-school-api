@@ -51,9 +51,9 @@ class AdminUserController extends Controller
         }
 
         $users = $query->orderBy('created_at', 'desc')->paginate(20);
-        
+
         // Get schools based on user permissions
-        $schools = $currentUser->isSuperAdmin() 
+        $schools = $currentUser->isSuperAdmin()
             ? School::orderBy('name')->get()
             : collect([$currentUser->school]);
 
@@ -63,9 +63,9 @@ class AdminUserController extends Controller
     public function create()
     {
         $currentUser = Auth::user();
-        
+
         // Get available schools based on permissions
-        $schools = $currentUser->isSuperAdmin() 
+        $schools = $currentUser->isSuperAdmin()
             ? School::orderBy('name')->get()
             : collect([$currentUser->school]);
 
@@ -78,7 +78,7 @@ class AdminUserController extends Controller
     public function store(Request $request)
     {
         $currentUser = Auth::user();
-        
+
         $validator = Validator::make($request->all(), [
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
@@ -117,14 +117,14 @@ class AdminUserController extends Controller
     public function show(User $user)
     {
         $currentUser = Auth::user();
-        
+
         // Check if user can view this user
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
         }
 
         $user->load(['school', 'studentSchedules.instructor', 'instructorSchedules.student', 'invoices', 'payments']);
-        
+
         $stats = [
             'total_schedules' => $user->studentSchedules->count() + $user->instructorSchedules->count(),
             'completed_lessons' => $user->studentSchedules->where('status', 'completed')->count(),
@@ -138,13 +138,13 @@ class AdminUserController extends Controller
     public function edit(User $user)
     {
         $currentUser = Auth::user();
-        
+
         // Check if user can edit this user
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
         }
 
-        $schools = $currentUser->isSuperAdmin() 
+        $schools = $currentUser->isSuperAdmin()
             ? School::orderBy('name')->get()
             : collect([$currentUser->school]);
 
@@ -156,7 +156,7 @@ class AdminUserController extends Controller
     public function update(Request $request, User $user)
     {
         $currentUser = Auth::user();
-        
+
         // Check if user can edit this user
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
@@ -182,7 +182,7 @@ class AdminUserController extends Controller
         }
 
         $userData = $request->except(['password', 'password_confirmation']);
-        
+
         if ($request->filled('password')) {
             $userData['password'] = Hash::make($request->password);
         }
@@ -201,7 +201,7 @@ class AdminUserController extends Controller
     public function destroy(User $user)
     {
         $currentUser = Auth::user();
-        
+
         // Check if user can delete this user
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
@@ -226,7 +226,7 @@ class AdminUserController extends Controller
     public function toggleStatus(User $user)
     {
         $currentUser = Auth::user();
-        
+
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
         }
@@ -275,5 +275,147 @@ class AdminUserController extends Controller
 
         return 'required|exists:schools,id|in:' . $currentUser->school_id;
     }
+
+    public function allUsers(Request $request)
+{
+    $currentUser = Auth::user();
+
+    // Only super admins can access this
+    if (!$currentUser->isSuperAdmin()) {
+        abort(403, 'Access denied. Super Administrator privileges required.');
+    }
+
+    $query = User::with('school');
+
+    // Search functionality
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('fname', 'like', "%{$search}%")
+              ->orWhere('lname', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%");
+        });
+    }
+
+    // Filter by role
+    if ($request->filled('role')) {
+        $query->where('role', $request->role);
+    }
+
+    // Filter by status
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    // Filter by school
+    if ($request->filled('school_id')) {
+        $query->where('school_id', $request->school_id);
+    }
+
+    $users = $query->orderBy('created_at', 'desc')->paginate(25);
+
+    // Get all schools for filtering
+    $schools = School::orderBy('name')->get();
+
+    // Get statistics
+    $stats = [
+        'total_users' => User::count(),
+        'super_admins' => User::where('role', 'super_admin')->count(),
+        'school_admins' => User::where('role', 'admin')->where('is_super_admin', false)->count(),
+        'instructors' => User::where('role', 'instructor')->count(),
+        'students' => User::where('role', 'student')->count(),
+        'active_users' => User::where('status', 'active')->count(),
+        'inactive_users' => User::where('status', 'inactive')->count(),
+        'suspended_users' => User::where('status', 'suspended')->count(),
+    ];
+
+    return view('admin.users.all-users', compact('users', 'schools', 'currentUser', 'stats'));
+}
+
+/**
+ * Display all super administrators (Super Admin only)
+ */
+public function superAdmins(Request $request)
+{
+    $currentUser = Auth::user();
+
+    // Only super admins can access this
+    if (!$currentUser->isSuperAdmin()) {
+        abort(403, 'Access denied. Super Administrator privileges required.');
+    }
+
+    $query = User::where('role', 'super_admin')->orWhere('is_super_admin', true);
+
+    // Search functionality
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('fname', 'like', "%{$search}%")
+              ->orWhere('lname', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%");
+        });
+    }
+
+    // Filter by status
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    $superAdmins = $query->orderBy('created_at', 'desc')->paginate(20);
+
+    // Get statistics
+    $stats = [
+        'total_super_admins' => User::where('role', 'super_admin')->orWhere('is_super_admin', true)->count(),
+        'active_super_admins' => User::where(function($q) {
+            $q->where('role', 'super_admin')->orWhere('is_super_admin', true);
+        })->where('status', 'active')->count(),
+        'inactive_super_admins' => User::where(function($q) {
+            $q->where('role', 'super_admin')->orWhere('is_super_admin', true);
+        })->where('status', '!=', 'active')->count(),
+        'recent_logins' => User::where(function($q) {
+            $q->where('role', 'super_admin')->orWhere('is_super_admin', true);
+        })->whereNotNull('last_login')
+          ->where('last_login', '>=', now()->subDays(30))
+          ->count(),
+    ];
+
+    return view('admin.users.super-admins', compact('superAdmins', 'currentUser', 'stats'));
+}
+
+/**
+ * Get user statistics for API calls
+ */
+public function getUserStats()
+{
+    $currentUser = Auth::user();
+
+    if (!$currentUser->isSuperAdmin()) {
+        return response()->json(['error' => 'Access denied'], 403);
+    }
+
+    $stats = [
+        'total_users' => User::count(),
+        'users_by_role' => [
+            'super_admin' => User::where('role', 'super_admin')->count(),
+            'admin' => User::where('role', 'admin')->where('is_super_admin', false)->count(),
+            'instructor' => User::where('role', 'instructor')->count(),
+            'student' => User::where('role', 'student')->count(),
+        ],
+        'users_by_status' => [
+            'active' => User::where('status', 'active')->count(),
+            'inactive' => User::where('status', 'inactive')->count(),
+            'suspended' => User::where('status', 'suspended')->count(),
+        ],
+        'users_by_school' => School::withCount('users')->orderBy('users_count', 'desc')->take(10)->get(),
+        'recent_registrations' => User::where('created_at', '>=', now()->subDays(30))->count(),
+        'recent_logins' => User::whereNotNull('last_login')
+            ->where('last_login', '>=', now()->subDays(7))
+            ->count(),
+    ];
+
+    return response()->json($stats);
+}
 }
 
