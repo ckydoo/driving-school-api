@@ -40,7 +40,7 @@ class FleetController extends BaseController
             'make' => 'required|string|max:255',
             'model' => 'required|string|max:255',
             'carplate' => 'required|string|max:255|unique:fleet',
-            'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
+            'modelyear' => 'required|integer|min:1900|max:' . (date('Y') + 1),
             'assigned_instructor_id' => 'nullable|exists:users,id',
         ]);
 
@@ -77,7 +77,7 @@ class FleetController extends BaseController
             'make' => 'sometimes|required|string|max:255',
             'model' => 'sometimes|required|string|max:255',
             'carplate' => 'sometimes|required|string|max:255|unique:fleet,carplate,' . $id,
-            'year' => 'sometimes|required|integer|min:1900|max:' . (date('Y') + 1),
+            'modelyear' => 'sometimes|required|integer|min:1900|max:' . (date('Y') + 1),
             'status' => 'sometimes|required|in:available,in_use,maintenance,out_of_service',
             'assigned_instructor_id' => 'nullable|exists:users,id',
         ]);
@@ -87,7 +87,7 @@ class FleetController extends BaseController
         }
 
         $vehicle->update($request->only([
-            'make', 'model', 'carplate', 'year', 'status',
+            'make', 'model', 'carplate', 'modelyear', 'status',
             'assigned_instructor_id', 'notes'
         ]));
 

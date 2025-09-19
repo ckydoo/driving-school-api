@@ -46,7 +46,7 @@ class SyncController extends BaseController
                     ->where('updated_at', '>', $lastSync)
                     ->get(),
                     
-                'schedules' => Schedule::with(['student', 'instructor', 'course', 'vehicle'])
+                'schedules' => Schedule::with(['student', 'instructor', 'course', 'car'])
                     ->where('school_id', $schoolId)
                     ->where('updated_at', '>', $lastSync)
                     ->get(),
@@ -88,258 +88,419 @@ class SyncController extends BaseController
         }
     }
 
-    public function upload(Request $request)
-    {
-        DB::beginTransaction();
 
+private function processIndividualItem($type, $data, $operation)
+{
+    try {
+        switch ($type) {
+            case 'users':
+                return $this->upsertUser($data, $operation);
+            case 'courses':
+                return $this->upsertCourse($data, $operation);
+            case 'fleet':
+                return $this->upsertFleet($data, $operation);
+            case 'schedules':
+                return $this->upsertSchedule($data, $operation);
+            case 'invoices':
+                return $this->upsertInvoice($data, $operation);
+            case 'payments':
+                return $this->upsertPayment($data, $operation);
+            default:
+                throw new \Exception("Unknown data type: {$type}");
+        }
+    } catch (\Exception $e) {
+        Log::error("Error processing {$type} item", [
+            'error' => $e->getMessage(),
+            'data' => $data,
+            'operation' => $operation
+        ]);
+        
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
+    }
+}
+
+
+
+
+public function upload(Request $request)
+{
+    DB::beginTransaction();
+
+    try {
+        $currentUser = auth()->user();
+        $schoolId = $currentUser->school_id;
+
+        Log::info('Sync upload request', [
+            'user_id' => $currentUser->id,
+            'school_id' => $schoolId,
+            'data_types' => array_keys($request->all())
+        ]);
+
+        if (!$schoolId) {
+            return $this->sendError('User does not belong to any school.', [], 400);
+        }
+
+        $uploaded = 0;
+        $errors = [];
+        $successfulItems = []; // ✅ INITIALIZE THIS ARRAY
+
+        // Process data types in dependency order
+        $dataTypes = ['users', 'courses', 'fleet', 'invoices', 'schedules', 'payments'];
+        
+        foreach ($dataTypes as $type) {
+            if ($request->has($type)) {
+                $result = $this->processDataType($type, $request->$type, $schoolId);
+                $uploaded += $result['uploaded'];
+                
+                // ✅ COLLECT SUCCESSFUL ITEMS
+                if (isset($result['successful_items'])) {
+                    $successfulItems = array_merge($successfulItems, $result['successful_items']);
+                }
+                
+                if (!empty($result['errors'])) {
+                    $errors[$type] = $result['errors'];
+                }
+            }
+        }
+
+        if (empty($errors)) {
+            DB::commit();
+            return $this->sendResponse([
+                'uploaded' => $uploaded,
+                'successful_items' => $successfulItems, // ✅ INCLUDE IN RESPONSE
+                'timestamp' => now()->toISOString()
+            ], 'Data uploaded successfully.');
+        } else {
+            DB::commit(); // Still commit partial successes
+            return response()->json([
+                'success' => false,
+                'message' => 'Upload partially failed.',
+                'data' => [
+                    'uploaded' => $uploaded,
+                    'errors' => $errors,
+                    'successful_items' => $successfulItems, // ✅ INCLUDE EVEN ON PARTIAL FAILURE
+                    'timestamp' => now()->toISOString()
+                ]
+            ], 422);
+        }
+
+    } catch (\Exception $e) {
+        DB::rollback();
+        Log::error('Sync upload failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return $this->sendError('Upload failed.', [
+            'error' => $e->getMessage(),
+            'successful_items' => [], // ✅ INCLUDE EVEN ON COMPLETE FAILURE
+        ], 500);
+    }
+}
+
+// COMPLETE REPLACEMENT for your processDataType method
+private function processDataType($type, $data, $schoolId)
+{
+    $uploaded = 0;
+    $errors = [];
+    $successfulItems = []; // ✅ INITIALIZE THIS ARRAY
+
+    foreach ($data as $index => $item) {
         try {
-            $currentUser = auth()->user();
-            $schoolId = $currentUser->school_id;
+            Log::info("Processing {$type} item #{$index}", ['item' => $item]);
 
-            Log::info('Sync upload request', [
-                'user_id' => $currentUser->id,
-                'school_id' => $schoolId,
-                'data_types' => array_keys($request->all())
-            ]);
-
-            if (!$schoolId) {
-                return $this->sendError('User does not belong to any school.', [], 400);
+            // ✅ FIXED: Better null handling
+            if (!is_array($item)) {
+                throw new \Exception("Invalid item format: expected array, got " . gettype($item));
             }
 
-            $uploaded = 0;
-            $errors = [];
+            $actualData = [];
+            $operation = 'create';
 
-            // Process data types in dependency order
-            $dataTypes = ['users', 'courses', 'fleet', 'invoices', 'schedules', 'payments'];
+            // Handle different data formats
+            if (isset($item['data']) && is_array($item['data'])) {
+                $actualData = $item['data'];
+            } else {
+                $actualData = $item;
+            }
+
+            if (isset($item['operation'])) {
+                $operation = $item['operation'];
+            }
+
+            // Validate operation
+            if (!in_array($operation, ['create', 'update', 'delete'])) {
+                throw new \Exception("Invalid operation: {$operation}");
+            }
+
+            // ✅ ENSURE SCHOOL_ID IS SET FOR ALL DATA
+            $actualData['school_id'] = $schoolId;
+
+            Log::info("Extracted data for {$type}", [
+                'operation' => $operation, 
+                'school_id' => $schoolId,
+                'item_id' => $actualData['id'] ?? 'new',
+                'data_keys' => array_keys($actualData)
+            ]);
+
+            // ✅ FIXED: Process each type with proper error handling
+            switch ($type) {
+                case 'users':
+                    $this->upsertUser($actualData, $operation);
+                    break;
+                case 'courses':
+                    $this->upsertCourse($actualData, $operation);
+                    break;
+                case 'fleet':
+                    $this->upsertFleet($actualData, $operation);
+                    break;
+                case 'schedules':
+                    $this->upsertSchedule($actualData, $operation);
+                    break;
+                case 'invoices':
+                    $this->upsertInvoice($actualData, $operation);
+                    break;
+                case 'payments':
+                    $this->upsertPayment($actualData, $operation);
+                    break;
+                default:
+                    throw new \Exception("Unknown data type: {$type}");
+            }
+
+            $uploaded++;
             
-            foreach ($dataTypes as $type) {
-                if ($request->has($type)) {
-                    $result = $this->processDataType($type, $request->$type, $schoolId);
-                    $uploaded += $result['uploaded'];
-                    if (!empty($result['errors'])) {
-                        $errors[$type] = $result['errors'];
+            // ✅ TRACK SUCCESSFUL ITEMS
+            $successfulItems[] = [
+                'id' => $actualData['id'] ?? null,
+                'operation' => $operation,
+                'type' => $type,
+                'index' => $index
+            ];
+
+            Log::info("{$type} item #{$index} processed successfully", [
+                'item_id' => $actualData['id'] ?? 'new',
+                'operation' => $operation
+            ]);
+
+        } catch (\Exception $e) {
+            $errorDetails = [
+                'item_index' => $index,
+                'item_data' => $actualData ?? $item ?? null,
+                'error' => $e->getMessage(),
+                'operation' => $operation ?? 'unknown',
+                'line' => $e->getLine(),
+                'file' => basename($e->getFile())
+            ];
+            
+            $errors[] = $errorDetails;
+            
+            Log::error("Failed to process {$type} item #{$index}", [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'item' => $item ?? null,
+                'actual_data' => $actualData ?? null
+            ]);
+        }
+    }
+
+    Log::info("Completed processing {$type}", [
+        'uploaded' => $uploaded,
+        'errors' => count($errors),
+        'successful_items' => count($successfulItems),
+        'total_processed' => count($data)
+    ]);
+
+    return [
+        'uploaded' => $uploaded,
+        'errors' => $errors,
+        'successful_items' => $successfulItems, // ✅ ALWAYS RETURN THIS
+    ];
+}
+
+/**
+ * Check if errors contain critical issues that should cause rollback
+ */
+private function checkForCriticalErrors($errors)
+{
+    $criticalErrorPatterns = [
+        'Foreign key constraint',
+        'duplicate key value',
+        'violates unique constraint',
+        'database connection',
+        'syntax error',
+        'permission denied'
+    ];
+    
+    foreach ($errors as $errorGroup) {
+        if (is_array($errorGroup)) {
+            foreach ($errorGroup as $error) {
+                $errorMessage = strtolower($error['error'] ?? '');
+                
+                foreach ($criticalErrorPatterns as $pattern) {
+                    if (strpos($errorMessage, strtolower($pattern)) !== false) {
+                        return true;
                     }
                 }
             }
-
-            if (empty($errors)) {
-                DB::commit();
-                return $this->sendResponse([
-                    'uploaded' => $uploaded,
-                    'timestamp' => now()->toISOString()
-                ], 'Data uploaded successfully.');
-            } else {
-                DB::commit(); // Still commit partial successes
-                return $this->sendError('Upload partially failed.', [
-                    'uploaded' => $uploaded,
-                    'errors' => $errors
-                ], 422);
-            }
-
-        } catch (\Exception $e) {
-            DB::rollback();
-            Log::error('Sync upload failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return $this->sendError('Upload failed.', ['error' => $e->getMessage()], 500);
         }
     }
+    
+    return false;
+}
 
-    private function processDataType($type, $data, $schoolId)
-    {
-        $uploaded = 0;
-        $errors = [];
 
-        foreach ($data as $item) {
-            try {
-                Log::info("Processing {$type} item", ['item' => $item]);
 
-                $actualData = $item['data'] ?? $item;
-                $operation = $item['operation'] ?? 'create';
-
-                // ✅ ENSURE SCHOOL_ID IS SET FOR ALL DATA
-                $actualData['school_id'] = $schoolId;
-
-                Log::info("Extracted data for {$type}", [
-                    'operation' => $operation, 
-                    'school_id' => $schoolId,
-                    'data' => $actualData
-                ]);
-
-                switch ($type) {
-                    case 'users':
-                        $this->upsertUser($actualData, $operation);
-                        break;
-                    case 'courses':
-                        $this->upsertCourse($actualData, $operation);
-                        break;
-                    case 'fleet':
-                        $this->upsertFleet($actualData, $operation);
-                        break;
-                    case 'schedules':
-                        $this->upsertSchedule($actualData, $operation);
-                        break;
-                    case 'invoices':
-                        $this->upsertInvoice($actualData, $operation);
-                        break;
-                    case 'payments':
-                        $this->upsertPayment($actualData, $operation);
-                        break;
-                }
-
-                $uploaded++;
-
-            } catch (\Exception $e) {
-                $errors[] = [
-                    'item' => $item,
-                    'error' => $e->getMessage()
-                ];
-                Log::error("Failed to process {$type} item", [
-                    'item' => $item,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
-
-        return [
-            'uploaded' => $uploaded,
-            'errors' => $errors
-        ];
+private function upsertUser($data, $operation)
+{
+    if ($operation === 'delete') {
+        User::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
+        return;
     }
 
-    private function upsertUser($data, $operation)
-    {
-        if ($operation === 'delete') {
-            User::where('id', $data['id'])->delete();
-            return;
-        }
-
-        User::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'fname' => $data['fname'] ?? '',
-                'lname' => $data['lname'] ?? '',
-                'email' => $data['email'],
-                'role' => $data['role'],
-                'phone' => $data['phone'] ?? '',
-                'status' => $data['status'] ?? 'active',
-                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
-                'date_of_birth' => $data['date_of_birth'] ?? '2000-01-01',
-                'gender' => $data['gender'] ?? 'other',
-                'address' => $data['address'] ?? '',
-                'idnumber' => $data['idnumber'] ?? null,
-            ]
-        );
+    // ✅ FIXED: Check if email exists before accessing it
+    if (!isset($data['email'])) {
+        throw new \Exception('Email is required for user operations');
     }
 
-    private function upsertCourse($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Course::where('id', $data['id'])->delete();
-            return;
-        }
+    User::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'fname' => $data['fname'] ?? '',
+            'lname' => $data['lname'] ?? '',
+            'email' => $data['email'],
+            'role' => $data['role'] ?? 'student',
+            'phone' => $data['phone'] ?? '',
+            'status' => $data['status'] ?? 'active',
+            'school_id' => $data['school_id'],
+            'date_of_birth' => $data['date_of_birth'] ?? '2000-01-01',
+            'gender' => $data['gender'] ?? 'other',
+            'address' => $data['address'] ?? '',
+            'idnumber' => $data['idnumber'] ?? null,
+        ]
+    );
+}
 
-        Course::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'name' => $data['name'],
-                'description' => $data['description'] ?? '',
-                'duration_hours' => $data['duration_hours'] ?? 0,
-                'price' => $data['price'] ?? 0,
-                'status' => $data['status'] ?? 'active',
-                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
-            ]
-        );
+private function upsertCourse($data, $operation)
+{
+    if ($operation === 'delete') {
+        Course::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
+        return;
     }
 
-    private function upsertFleet($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Fleet::where('id', $data['id'])->delete();
-            return;
-        }
-
-        // ✅ CORRECTED: Map client fields to correct database fields
-        Fleet::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'make' => $data['make'],
-                'model' => $data['model'],
-                'modelyear' => $data['modelyear'] ?? $data['year'] ?? date('Y'), // ✅ Fixed field name
-                'carplate' => $data['carplate'] ?? $data['carPlate'] ?? '', // ✅ Fixed field name
-                'status' => $data['status'] ?? 'available',
-                'instructor' => $data['instructor'], // ✅ This was already correct
-                'school_id' => $data['school_id'],
-                // ❌ REMOVED: transmission and fuel_type (these fields don't exist in the schema)
-            ]
-        );
+    // ✅ FIXED: Check if name exists and don't try to access email
+    if (!isset($data['name'])) {
+        throw new \Exception('Name is required for course operations');
     }
 
-    private function upsertSchedule($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Schedule::where('id', $data['id'])->delete();
-            return;
-        }
+    Course::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'name' => $data['name'],
+            'price' => $data['price'] ?? 0,
+            'status' => $data['status'] ?? 'active',
+            'school_id' => $data['school_id'],
+        ]
+    );
+}
 
-        Schedule::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'student' => $data['student_id'] ?? $data['student'],
-                'instructor' => $data['instructor_id'] ?? $data['instructor'],
-                'course' => $data['course_id'] ?? $data['course'],
-                'vehicle' => $data['vehicle_id'] ?? $data['car'],
-                'start' => $data['start'],
-                'end' => $data['end'],
-                'status' => $data['status'] ?? 'scheduled',
-                'class_type' => $data['class_type'] ?? 'Practical',
-                'notes' => $data['notes'] ?? '',
-                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
-            ]
-        );
+private function upsertFleet($data, $operation)
+{
+    if ($operation === 'delete') {
+        Fleet::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
+        return;
     }
 
-    private function upsertInvoice($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Invoice::where('id', $data['id'])->delete();
-            return;
-        }
-
-        Invoice::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'student' => $data['student_id'] ?? $data['student'],
-                'course' => $data['course_id'] ?? $data['course'],
-                'total_amount' => $data['total_amount'] ?? $data['amount'],
-                'status' => $data['status'] ?? 'pending',
-                'due_date' => $data['due_date'] ?? null,
-                'school_id' => $data['school_id'], // ✅ INCLUDE SCHOOL_ID
-            ]
-        );
+    // ✅ FIXED: Check required fields exist
+    if (!isset($data['make']) || !isset($data['model'])) {
+        throw new \Exception('Make and model are required for fleet operations');
     }
 
-    private function upsertPayment($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Payment::where('id', $data['id'])->delete();
-            return;
-        }
+    Fleet::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'make' => $data['make'],
+            'model' => $data['model'],
+            'modelyear' => $data['modelyear'] ?? $data['modelyear'] ?? date('Y'),
+            'carplate' => $data['carplate'] ?? $data['carPlate'] ?? '',
+            'status' => $data['status'] ?? 'available',
+            'instructor' => $data['instructor'] ?? null, // ✅ FIXED: Handle null instructor
+            'school_id' => $data['school_id'],
+        ]
+    );
+}
 
-        Payment::updateOrCreate(
-            ['id' => $data['id']],
-            [
-                'invoice_id' => $data['invoice_id'],
-                'student_id' => $data['student_id'],
-                'amount' => $data['amount'],
-                'payment_method' => $data['payment_method'] ?? 'cash',
-                'payment_date' => $data['payment_date'] ?? now(),
-                'status' => $data['status'] ?? 'completed',
-            ]
-        );
+private function upsertSchedule($data, $operation)
+{
+    if ($operation === 'delete') {
+        Schedule::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
+        return;
     }
+
+    // ✅ FIXED: Check required fields
+    if (!isset($data['start']) || !isset($data['end'])) {
+        throw new \Exception('Start and end times are required for schedule operations');
+    }
+
+    Schedule::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'student' => $data['student_id'] ?? $data['student'] ?? null,
+            'instructor' => $data['instructor_id'] ?? $data['instructor'] ?? null,
+            'course' => $data['course_id'] ?? $data['course'] ?? null,
+            'vehicle' => $data['vehicle_id'] ?? $data['car'] ?? null,
+            'start' => $data['start'],
+            'end' => $data['end'],
+            'status' => $data['status'] ?? 'scheduled',
+            'class_type' => $data['class_type'] ?? 'Practical',
+            'notes' => $data['notes'] ?? '',
+            'school_id' => $data['school_id'],
+        ]
+    );
+}
+
+private function upsertInvoice($data, $operation)
+{
+    if ($operation === 'delete') {
+        Invoice::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
+        return;
+    }
+
+    Invoice::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'student' => $data['student_id'] ?? $data['student'] ?? null,
+            'course' => $data['course_id'] ?? $data['course'] ?? null,
+            'total_amount' => $data['total_amount'] ?? $data['amount'] ?? 0,
+            'status' => $data['status'] ?? 'pending',
+            'due_date' => $data['due_date'] ?? null,
+            'school_id' => $data['school_id'],
+        ]
+    );
+}
+
+private function upsertPayment($data, $operation)
+{
+    if ($operation === 'delete') {
+        Payment::where('id', $data['id'])->delete();
+        return;
+    }
+
+    Payment::updateOrCreate(
+        ['id' => $data['id']],
+        [
+            'invoice_id' => $data['invoice_id'] ?? null,
+            'student_id' => $data['student_id'] ?? null,
+            'amount' => $data['amount'] ?? 0,
+            'payment_method' => $data['payment_method'] ?? 'cash',
+            'payment_date' => $data['payment_date'] ?? now(),
+            'status' => $data['status'] ?? 'completed',
+        ]
+    );
+}
 
     public function status()
     {
