@@ -85,4 +85,33 @@ class User extends Authenticatable
     {
         return $this->fname . ' ' . $this->lname;
     }
+
+     const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_ADMIN = 'admin';
+    const ROLE_INSTRUCTOR = 'instructor';
+    const ROLE_STUDENT = 'student';
+
+    /**
+     * Check if user is super admin
+     */
+    public function isSuperAdmin()
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    /**
+     * Check if user is admin (any level)
+     */
+    public function isAdmin()
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+    }
+
+    /**
+     * Check if user can manage school data
+     */
+    public function canManageSchool($schoolId)
+    {
+        return $this->isSuperAdmin() || $this->school_id == $schoolId;
+    }
 }

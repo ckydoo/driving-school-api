@@ -40,7 +40,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Admin routes group
-Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin', 'school.scope'])->prefix('admin')->name('admin.')->group(function () {
 
     // Dashboard
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
