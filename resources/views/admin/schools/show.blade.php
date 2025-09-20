@@ -142,10 +142,7 @@
                                     <td class="fw-bold text-muted">City, State:</td>
                                     <td>{{ $school->city }}, {{ $school->state }}</td>
                                 </tr>
-                                <tr>
-                                    <td class="fw-bold text-muted">ZIP Code:</td>
-                                    <td>{{ $school->zip_code }}</td>
-                                </tr>
+                                
                                 <tr>
                                     <td class="fw-bold text-muted">Status:</td>
                                     <td>

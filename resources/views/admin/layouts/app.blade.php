@@ -193,14 +193,19 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <a class="sidebar-brand" href="{{ Auth::user()->isSuperAdmin() ? route('admin.super.dashboard') : route('admin.dashboard') }}">
-            <div class="sidebar-brand-icon">
-                <i class="fas fa-car-side"></i>
-            </div>
+            
             <div class="sidebar-brand-text ms-2">
+               
                 @if(Auth::user()->isSuperAdmin())
-                    Super Admin
+                <center>
+                <h4>Drive Sync Pro </h4> 
+                <small>Super Admin</small> 
+                </center>
                 @else
-                    Admin Panel
+                <center>
+                <h4>Drive Sync Pro </h4> 
+                <small> Admin</small> 
+                </center>
                 @endif
             </div>
         </a>

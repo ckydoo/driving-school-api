@@ -13,6 +13,11 @@ use App\Http\Controllers\Admin\AdminSchoolController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminScheduleController;
+use App\Http\Controllers\Admin\AdminSubscriptionController;
+use App\Http\Controllers\Admin\AdminSystemController;
+use App\Http\Controllers\Admin\AdminLogController;  
+use App\Http\Controllers\Admin\AdminBackupController;
+
 
 // Standard welcome route
 Route::get('/', function () {
@@ -157,15 +162,17 @@ Route::middleware(['auth', 'super_admin_only'])->prefix('admin')->name('admin.')
         Route::get('/export/{type}', [AdminLogController::class, 'export'])->name('export');
     });
 
-    // === BACKUP MANAGEMENT ===
+   // === BACKUP MANAGEMENT ===
     Route::prefix('backups')->name('backups.')->group(function () {
         Route::get('/', [AdminBackupController::class, 'index'])->name('index');
         Route::post('/create', [AdminBackupController::class, 'create'])->name('create');
         Route::get('/{backup}/download', [AdminBackupController::class, 'download'])->name('download');
         Route::delete('/{backup}', [AdminBackupController::class, 'destroy'])->name('destroy');
-        Route::post('/restore/{backup}', [AdminBackupController::class, 'restore'])->name('restore');
+        Route::post('/{backup}/restore', [AdminBackupController::class, 'restore'])->name('restore');
+        Route::post('/config', [AdminBackupController::class, 'config'])->name('config');
+        Route::post('/cleanup', [AdminBackupController::class, 'cleanup'])->name('cleanup');
+        Route::post('/test', [AdminBackupController::class, 'test'])->name('test');
     });
-
     // === ADDITIONAL SYSTEM ROUTES ===
     Route::get('/email-settings', [AdminSystemController::class, 'emailSettings'])->name('email.settings');
     Route::post('/email-settings', [AdminSystemController::class, 'updateEmailSettings'])->name('email.settings.update');
