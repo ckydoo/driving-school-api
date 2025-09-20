@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/Admin/AdminController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -69,34 +68,33 @@ class AdminController extends Controller
         }
 
         try {
+            // System-wide statistics
             $stats = [
-                // School Statistics
                 'total_schools' => School::count(),
                 'active_schools' => School::where('status', 'active')->count(),
-                'trial_schools' => School::where('subscription_status', 'trial')->count(),
-                'paid_schools' => School::where('subscription_status', 'active')->count(),
-
-                // User Statistics
                 'total_users' => User::count(),
-                'super_admins' => User::where('role', 'super_admin')->count(),
-                'school_admins' => User::where('role', 'admin')->where('is_super_admin', false)->count(),
-                'total_instructors' => User::where('role', 'instructor')->count(),
-                'total_students' => User::where('role', 'student')->count(),
                 'active_users' => User::where('status', 'active')->count(),
-
-                // System Statistics
+                'total_students' => User::where('role', 'student')->count(),
+                'total_instructors' => User::where('role', 'instructor')->count(),
+                'super_admins' => User::where('role', 'super_admin')->count(),
+                'school_admins' => User::where('role', 'admin')->count(),
+                'total_vehicles' => Fleet::count(),
                 'total_schedules' => Schedule::count(),
                 'total_invoices' => Invoice::count(),
-                'total_vehicles' => Fleet::count(),
-                'available_vehicles' => Fleet::where('status', 'available')->count(),
                 'total_revenue' => Payment::where('status', 'completed')->sum('amount') ?? 0,
             ];
 
-            // Recent activity across all schools
-            $recentUsers = User::with('school')->latest()->take(10)->get();
-            $recentSchools = School::latest()->take(5)->get();
+            // Recent activity
+            $recentUsers = User::with('school')
+                ->latest()
+                ->take(10)
+                ->get();
 
-            // Top performing schools
+            $recentSchools = School::withCount('users')
+                ->latest()
+                ->take(5)
+                ->get();
+
             $topSchools = School::withCount([
                 'users as students_count' => function($q) {
                     $q->where('role', 'student');
@@ -106,9 +104,9 @@ class AdminController extends Controller
             ->take(5)
             ->get();
 
-            // Monthly revenue trend (last 6 months)
+            // Monthly revenue data for chart
             $monthlyRevenue = [];
-            for ($i = 5; $i >= 0; $i--) {
+            for ($i = 11; $i >= 0; $i--) {
                 $date = Carbon::now()->subMonths($i);
                 $revenue = Payment::where('status', 'completed')
                     ->whereYear('created_at', $date->year)
@@ -164,17 +162,35 @@ class AdminController extends Controller
                     ->with('error', 'Please contact administrator to assign you to a school.');
             }
 
+            // **FIX: Get the school object**
+            $school = School::find($schoolId);
+            
+            if (!$school) {
+                return redirect()->route('admin.profile')
+                    ->with('error', 'School not found. Please contact administrator.');
+            }
+
             $stats = [
                 'total_students' => User::where('school_id', $schoolId)->where('role', 'student')->count(),
+                'active_students' => User::where('school_id', $schoolId)->where('role', 'student')->where('status', 'active')->count(),
                 'total_instructors' => User::where('school_id', $schoolId)->where('role', 'instructor')->count(),
                 'active_schedules' => Schedule::whereHas('student', function($q) use ($schoolId) {
                     $q->where('school_id', $schoolId);
                 })->where('status', 'scheduled')->count(),
+                'total_schedules' => Schedule::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->count(),
+                'completed_lessons' => Schedule::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->where('status', 'completed')->count(),
                 'total_vehicles' => Fleet::where('school_id', $schoolId)->count(),
                 'available_vehicles' => Fleet::where('school_id', $schoolId)->where('status', 'available')->count(),
                 'pending_invoices' => Invoice::whereHas('student', function($q) use ($schoolId) {
                     $q->where('school_id', $schoolId);
                 })->where('status', 'pending')->count(),
+                'total_revenue' => Payment::whereHas('user', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })->where('status', 'completed')->sum('amount') ?? 0,
                 'monthly_revenue' => Payment::whereHas('user', function($q) use ($schoolId) {
                     $q->where('school_id', $schoolId);
                 })->where('status', 'completed')
@@ -193,25 +209,46 @@ class AdminController extends Controller
                     $q->where('school_id', $schoolId);
                 })
                 ->with(['student', 'instructor'])
-                ->where('date', '>=', Carbon::today())
-                ->orderBy('date')
-                ->orderBy('time')
+                ->where('start', '>=', Carbon::today())
+                ->orderBy('start')
                 ->take(10)
                 ->get();
 
+            // Monthly lessons data for chart
+            $monthlyLessons = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $date = Carbon::now()->subMonths($i);
+                $total = Schedule::whereHas('student', function($q) use ($schoolId) {
+                    $q->where('school_id', $schoolId);
+                })
+                ->whereYear('start', $date->year)
+                ->whereMonth('start', $date->month)
+                ->count();
+
+                $monthlyLessons[] = (object) [
+                    'month' => $date->format('M Y'),
+                    'total' => $total
+                ];
+            }
+
+            // **FIX: Pass the school object to the view**
             return view('admin.school-dashboard', compact(
+                'school',           // <-- This was missing!
                 'stats',
                 'recentStudents',
-                'upcomingSchedules'
+                'upcomingSchedules',
+                'monthlyLessons'    // <-- This was also missing!
             ));
 
         } catch (\Exception $e) {
             Log::error('School Admin Dashboard Error: ' . $e->getMessage());
 
             return view('admin.school-dashboard', [
-                'stats' => $this->getDefaultStats(),
+                'school' => null,   // <-- Provide fallback
+                'stats' => $this->getSchoolDefaultStats(),
                 'recentStudents' => collect(),
                 'upcomingSchedules' => collect(),
+                'monthlyLessons' => [],  // <-- Add this fallback too
                 'error' => 'Unable to load dashboard data. Please try again.'
             ]);
         }
@@ -288,7 +325,7 @@ class AdminController extends Controller
     // === HELPER METHODS ===
 
     /**
-     * Get default stats when there's an error
+     * Get default stats when there's an error (Super Admin)
      */
     private function getDefaultStats(): array
     {
@@ -299,10 +336,30 @@ class AdminController extends Controller
             'total_students' => 0,
             'total_instructors' => 0,
             'active_users' => 0,
+            'super_admins' => 0,
+            'school_admins' => 0,
             'total_schedules' => 0,
             'total_invoices' => 0,
             'total_vehicles' => 0,
+            'total_revenue' => 0,
+        ];
+    }
+
+    /**
+     * Get default stats when there's an error (School Admin)
+     */
+    private function getSchoolDefaultStats(): array
+    {
+        return [
+            'total_students' => 0,
+            'active_students' => 0,
+            'total_instructors' => 0,
+            'active_schedules' => 0,
+            'total_schedules' => 0,
+            'completed_lessons' => 0,
+            'total_vehicles' => 0,
             'available_vehicles' => 0,
+            'pending_invoices' => 0,
             'total_revenue' => 0,
             'monthly_revenue' => 0,
         ];

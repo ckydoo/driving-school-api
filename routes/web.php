@@ -3,26 +3,31 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminFleetController;
+use App\Http\Controllers\Admin\AdminLogController;  
+use App\Http\Controllers\Admin\AdminBackupController;
 use App\Http\Controllers\Admin\AdminCourseController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\AdminSchoolController;
+use App\Http\Controllers\Admin\AdminSystemController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
-use App\Http\Controllers\Admin\AdminSystemController;
-use App\Http\Controllers\Admin\AdminLogController;  
-use App\Http\Controllers\Admin\AdminBackupController;
 
 
-// Standard welcome route
-Route::get('/', function () {
-    return view('welcome');
-});
+// === LANDING PAGES ===
+Route::get('/', [LandingController::class, 'index'])->name('home');
+Route::get('/features', [LandingController::class, 'features'])->name('features');
+Route::get('/pricing', [LandingController::class, 'pricing'])->name('pricing');
+Route::get('/about', [LandingController::class, 'about'])->name('about');
+Route::get('/contact', [LandingController::class, 'contact'])->name('contact');
+Route::post('/contact', [LandingController::class, 'submitContact'])->name('contact.submit');
+
 
 // Authentication routes
 Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
@@ -191,4 +196,9 @@ Route::middleware(['auth', 'school_admin_only'])->prefix('admin')->name('admin.'
     Route::get('/my-school', [AdminSchoolController::class, 'mySchool'])->name('my-school');
     Route::get('/my-school/edit', [AdminSchoolController::class, 'editMySchool'])->name('my-school.edit');
     Route::put('/my-school', [AdminSchoolController::class, 'updateMySchool'])->name('my-school.update');
+});
+
+// === FALLBACK ROUTE ===
+Route::fallback(function () {
+    return redirect()->route('home');
 });

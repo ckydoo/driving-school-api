@@ -12,7 +12,8 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="h3 mb-0 text-gray-800">
-                        <i class="fas fa-school text-primary"></i> {{ $school->name }} Dashboard
+                        <i class="fas fa-school text-primary"></i> 
+                        {{ $school?->name ?? 'School Dashboard' }}
                     </h1>
                     <p class="mb-0 text-muted">Welcome back, {{ Auth::user()->fname }}! Here's your school overview.</p>
                 </div>
@@ -22,19 +23,45 @@
             </div>
         </div>
     </div>
-
-    {{-- School Information Alert --}}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <i class="fas fa-info-circle"></i>
-                <strong>School Info:</strong> {{ $school->city }}, {{ $school->country }} •
-                Operating {{ implode(', ', json_decode($school->operating_days, true)) }} •
-                {{ $school->start_time }} - {{ $school->end_time }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
+{{-- School Information Alert --}}
+@if($school)
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle"></i>
+            <strong>School Info:</strong> {{ $school->city ?? 'N/A' }}, {{ $school->country ?? 'N/A' }} •
+            Operating 
+            @php
+                $operatingDays = [];
+                if ($school->operating_days) {
+                    if (is_string($school->operating_days)) {
+                        $decoded = json_decode($school->operating_days, true);
+                        $operatingDays = is_array($decoded) ? $decoded : ['N/A'];
+                    } elseif (is_array($school->operating_days)) {
+                        $operatingDays = $school->operating_days;
+                    } else {
+                        $operatingDays = ['N/A'];
+                    }
+                } else {
+                    $operatingDays = ['N/A'];
+                }
+            @endphp
+            {{ implode(', ', $operatingDays) }} •
+            {{ $school->start_time ?? 'N/A' }} - {{ $school->end_time ?? 'N/A' }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     </div>
+</div>
+@else
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Warning:</strong> School information not available. Please contact administrator.
+        </div>
+    </div>
+</div>
+@endif
 
     {{-- School Statistics Cards --}}
     <div class="row mb-4">
@@ -235,31 +262,50 @@
                     </a>
                 </div>
                 <div class="card-body">
-                    @forelse($upcomingSchedules as $schedule)
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="mr-3">
-                                <div class="icon-circle bg-info">
-                                    <i class="fas fa-calendar text-white"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="font-weight-bold">{{ $schedule->student->full_name }}</div>
-                                <div class="small text-gray-500">
-                                    with {{ $schedule->instructor->full_name }} •
-                                    {{ \Carbon\Carbon::parse($schedule->date)->format('M j') }} at {{ $schedule->start_time }}
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="badge badge-info">{{ $schedule->status }}</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center text-muted">
-                            <i class="fas fa-calendar-plus fa-3x mb-3"></i>
-                            <p>No upcoming lessons</p>
-                            <a href="{{ route('admin.schedules.create') }}" class="btn btn-primary btn-sm">Schedule First Lesson</a>
-                        </div>
-                    @endforelse
+                    @if($upcomingSchedules->count() > 0)
+    @foreach($upcomingSchedules as $schedule)
+        <div class="d-flex align-items-center mb-3">
+            <div class="mr-3">
+                <div class="icon-circle bg-info">
+                    <i class="fas fa-calendar text-white"></i>
+                </div>
+            </div>
+            <div class="flex-grow-1">
+                <div class="font-weight-bold">
+                    {{-- SAFE: Handle both relationship loading and missing data --}}
+                    @if($schedule->student && is_object($schedule->student))
+                        {{ ($schedule->student->fname ?? '') . ' ' . ($schedule->student->lname ?? '') }}
+                    @else
+                        Student #{{ $schedule->student }}
+                    @endif
+                </div>
+                <div class="small text-gray-500">
+                    with 
+                    @if($schedule->instructor && is_object($schedule->instructor))
+                        {{ ($schedule->instructor->fname ?? '') . ' ' . ($schedule->instructor->lname ?? '') }}
+                    @else
+                        Instructor #{{ $schedule->instructor }}
+                    @endif
+                    • {{ $schedule->start ? $schedule->start->format('M d, Y g:i A') : 'No date' }}
+                </div>
+            </div>
+            <div>
+                <span class="badge badge-{{ $schedule->status === 'scheduled' ? 'primary' : 'success' }}">
+                    {{ ucfirst($schedule->status) }}
+                </span>
+            </div>
+        </div>
+    @endforeach
+@else
+    <div class="text-center py-4">
+        <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">No upcoming lessons</h5>
+        <p class="text-muted">Schedule some lessons to get started.</p>
+        <a href="{{ route('admin.schedules.create') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Schedule Lesson
+        </a>
+    </div>
+@endif
                 </div>
             </div>
         </div>

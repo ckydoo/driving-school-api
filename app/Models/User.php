@@ -78,6 +78,44 @@ class User extends Authenticatable
         return $this->hasMany(Fleet::class, 'instructor');
     }
 
+    // === ACCESSORS ===
+
+    /**
+     * Get the user's full name.
+     * 
+     * @return string
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->fname} {$this->lname}");
+    }
+
+    /**
+     * Get the user's display name (same as full name for compatibility).
+     * 
+     * @return string
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->full_name;
+    }
+
+    /**
+     * Get a formatted role display name.
+     * 
+     * @return string
+     */
+    public function getRoleDisplayAttribute(): string
+    {
+        return match($this->role) {
+            'super_admin' => 'Super Administrator',
+            'admin' => 'School Administrator',
+            'instructor' => 'Instructor',
+            'student' => 'Student',
+            default => ucfirst($this->role)
+        };
+    }
+
     // === ROLE HELPER METHODS ===
 
     public function isSuperAdmin(): bool
@@ -160,23 +198,7 @@ class User extends Authenticatable
         return $query->where('status', 'active');
     }
 
-    // === ACCESSORS ===
-
-    public function getFullNameAttribute(): string
-    {
-        return "{$this->fname} {$this->lname}";
-    }
-
-    public function getRoleDisplayAttribute(): string
-    {
-        return match($this->role) {
-            'super_admin' => 'Super Administrator',
-            'admin' => 'School Administrator',
-            'instructor' => 'Instructor',
-            'student' => 'Student',
-            default => ucfirst($this->role)
-        };
-    }
+    // === HELPER METHODS ===
 
     public function getCanAccessAdminPanelAttribute(): bool
     {
