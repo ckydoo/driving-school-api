@@ -1,7 +1,7 @@
 @extends('landing.layout')
 
-@section('title', 'Features - DriveMaster')
-@section('description', 'Discover all the powerful features that make DriveMaster the best choice for driving school management.')
+@section('title', 'Features - DriveSync Pro')
+@section('description', 'Discover all the powerful features that make DriveSync Pro the best choice for driving school management.')
 
 @section('content')
 <!-- Hero Section -->
@@ -201,7 +201,7 @@
         <div class="row">
             <div class="col-lg-8 mx-auto text-center text-white" data-aos="fade-up">
                 <h2 class="display-4 fw-bold mb-3">Ready to Experience These Features?</h2>
-                <p class="lead mb-4">Start your free trial today and see how DriveMaster can transform your driving school.</p>
+                <p class="lead mb-4">Start your free trial today and see how DriveSync Pro can transform your driving school.</p>
                 <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
                     <a href="{{ route('login') }}" class="btn btn-light btn-lg">
                         <i class="fas fa-rocket"></i> Start Free Trial

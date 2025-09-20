@@ -1,7 +1,7 @@
 {{-- resources/views/landing/pricing.blade.php --}}
 @extends('landing.layout')
 
-@section('title', 'Pricing - DriveMaster')
+@section('title', 'Pricing - DriveSync Pro')
 @section('description', 'Choose the perfect plan for your driving school. Affordable pricing with no hidden fees.')
 
 @section('content')
@@ -352,7 +352,7 @@
         <div class="row">
             <div class="col-lg-8 mx-auto text-center text-white" data-aos="fade-up">
                 <h2 class="display-4 fw-bold mb-3">Ready to Get Started?</h2>
-                <p class="lead mb-4">Join thousands of driving schools already using DriveMaster. Start your free trial today!</p>
+                <p class="lead mb-4">Join thousands of driving schools already using DriveSync Pro. Start your free trial today!</p>
                 <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
                     <a href="{{ route('login') }}" class="btn btn-light btn-lg">
                         <i class="fas fa-rocket"></i> Start Free Trial

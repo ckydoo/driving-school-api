@@ -1,7 +1,7 @@
 {{-- resources/views/landing/contact.blade.php --}}
 @extends('landing.layout')
 
-@section('title', 'Contact Us - DriveMaster')
+@section('title', 'Contact Us - DriveSync Pro')
 @section('description', 'Get in touch with our team. We\'re here to help you transform your driving school.')
 
 @section('content')
@@ -30,14 +30,14 @@
                 <div class="d-flex align-items-center justify-content-center">
                     <i class="fas fa-envelope text-primary me-2"></i>
                     <strong>Email:</strong>
-                    <a href="mailto:hello@drivemaster.com" class="ms-2">hello@drivemaster.com</a>
+                    <a href="mailto:hello@drivesyncpro.com" class="ms-2">hello@drivesyncpro.com</a>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
                 <div class="d-flex align-items-center justify-content-center">
                     <i class="fas fa-phone text-primary me-2"></i>
                     <strong>Phone:</strong>
-                    <a href="tel:+1234567890" class="ms-2">+1 (234) 567-890</a>
+                    <a href="tel:+1234567890" class="ms-2">+263784666891</a>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
@@ -207,9 +207,9 @@
                                 </div>
                                 <div>
                                     <h6 class="mb-1 fw-bold">Email Us</h6>
-                                    <a href="mailto:hello@drivemaster.com" class="text-decoration-none">hello@drivemaster.com</a>
+                                    <a href="mailto:hello@drivesyncpro.com" class="text-decoration-none">hello@drivesyncpro.com</a>
                                     <br>
-                                    <a href="mailto:support@drivemaster.com" class="text-decoration-none">support@drivemaster.com</a>
+                                    <a href="mailto:support@drivesyncpro.com" class="text-decoration-none">support@drivesyncpro.com</a>
                                 </div>
                             </div>
                             
@@ -219,7 +219,7 @@
                                 </div>
                                 <div>
                                     <h6 class="mb-1 fw-bold">Call Us</h6>
-                                    <a href="tel:+1234567890" class="text-decoration-none">+1 (234) 567-890</a>
+                                    <a href="tel:+1234567890" class="text-decoration-none">+263784666891</a>
                                     <br>
                                     <small class="text-muted">Mon-Fri 9am-6pm EST</small>
                                 </div>
@@ -232,10 +232,9 @@
                                 <div>
                                     <h6 class="mb-1 fw-bold">Visit Us</h6>
                                     <address class="mb-0">
-                                        123 Business Avenue<br>
-                                        Suite 100<br>
-                                        New York, NY 10001<br>
-                                        United States
+                                        Corner C` Avenue & 4th Street<br>
+                                        Mutare<br>
+                                        Zimbabwe
                                     </address>
                                 </div>
                             </div>
@@ -295,31 +294,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Social Media Card -->
-                <div class="card shadow-lg border-0">
-                    <div class="card-body p-4 text-center">
-                        <h5 class="fw-bold mb-3">Follow Us</h5>
-                        <div class="social-links">
-                            <a href="#" class="btn btn-outline-primary rounded-circle me-2 mb-2" style="width: 50px; height: 50px;">
-                                <i class="fab fa-facebook-f"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-info rounded-circle me-2 mb-2" style="width: 50px; height: 50px;">
-                                <i class="fab fa-twitter"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-primary rounded-circle me-2 mb-2" style="width: 50px; height: 50px;">
-                                <i class="fab fa-linkedin-in"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-danger rounded-circle me-2 mb-2" style="width: 50px; height: 50px;">
-                                <i class="fab fa-instagram"></i>
-                            </a>
-                            <a href="#" class="btn btn-outline-danger rounded-circle me-2 mb-2" style="width: 50px; height: 50px;">
-                                <i class="fab fa-youtube"></i>
-                            </a>
-                        </div>
-                        <p class="text-muted small mt-3 mb-0">Stay updated with our latest news and features</p>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -343,7 +317,7 @@
                             <i class="fas fa-calendar-alt fa-2x"></i>
                         </div>
                         <h5 class="fw-bold">Schedule a Demo</h5>
-                        <p class="text-muted mb-3">Book a personalized demo to see DriveMaster in action</p>
+                        <p class="text-muted mb-3">Book a personalized demo to see DriveSync Pro in action</p>
                         <a href="{{ route('login') }}" class="btn btn-outline-primary">
                             <i class="fas fa-video"></i> Book Demo
                         </a>

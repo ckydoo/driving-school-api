@@ -1,6 +1,6 @@
 @extends('landing.layout')
 
-@section('title', 'DriveMaster - Professional Driving School Management System')
+@section('title', 'DriveSync Pro - Professional Driving School Management System')
 @section('description', 'Transform your driving school with our comprehensive management platform. Student tracking, scheduling, billing, and more.')
 
 @section('content')
@@ -161,7 +161,7 @@
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto text-center" data-aos="fade-up">
                 <h2 class="display-4 fw-bold mb-3">Trusted by Schools Worldwide</h2>
-                <p class="lead text-muted">Join thousands of driving schools already using DriveMaster to transform their operations.</p>
+                <p class="lead text-muted">Join thousands of driving schools already using DriveSync Pro to transform their operations.</p>
             </div>
         </div>
         
@@ -197,7 +197,7 @@
         <div class="row">
             <div class="col-lg-8 mx-auto text-center text-white" data-aos="fade-up">
                 <h2 class="display-4 fw-bold mb-3">Ready to Get Started?</h2>
-                <p class="lead mb-4">Join thousands of driving schools already using DriveMaster. Start your free trial today!</p>
+                <p class="lead mb-4">Join thousands of driving schools already using DriveSync Pro. Start your free trial today!</p>
                 <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
                     <a href="{{ route('login') }}" class="btn btn-light btn-lg">
                         <i class="fas fa-rocket"></i> Start Free Trial

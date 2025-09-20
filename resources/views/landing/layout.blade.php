@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="@yield('description', 'Professional Driving School Management System - Streamline your driving school operations with our comprehensive platform.')">
-    <title>@yield('title', 'DriveMaster - Professional Driving School Management System')</title>
+    <title>@yield('title', 'DriveSync Pro - Professional Driving School Management System')</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -275,7 +275,7 @@
     <nav class="navbar navbar-expand-lg fixed-top" id="mainNavbar">
         <div class="container">
             <a class="navbar-brand" href="{{ route('home') }}">
-                <i class="fas fa-car"></i> DriveMaster
+                <i class="fas fa-car"></i> DriveSync Pro
             </a>
             
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -319,7 +319,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-4 mb-4">
-                    <h5><i class="fas fa-car"></i> DriveMaster</h5>
+                    <h5><i class="fas fa-car"></i> DriveSync Pro</h5>
                     <p class="mb-3">The complete solution for driving school management. Streamline operations, track progress, and grow your business with our comprehensive platform.</p>
                     <div class="social-links">
                         <a href="#" class="me-3"><i class="fab fa-facebook fa-lg"></i></a>
@@ -374,7 +374,7 @@
             
             <div class="row align-items-center">
                 <div class="col-md-6">
-                    <p class="mb-0">&copy; {{ date('Y') }} DriveMaster. All rights reserved.</p>
+                    <p class="mb-0">&copy; {{ date('Y') }} DriveSync Pro. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <p class="mb-0">Made with <i class="fas fa-heart text-danger"></i> for driving schools worldwide</p>
