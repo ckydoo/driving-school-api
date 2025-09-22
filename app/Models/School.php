@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class School extends Model
 {
@@ -11,18 +12,33 @@ class School extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'email',
         'phone',
         'address',
-        'subscription_status',
-        'subscription_expires_at',
-        'settings',
+        'city',
+        'country',
+        'website',
+        'start_time',
+        'end_time',
+        'operating_days',
+        'invitation_code',
         'status',
+        'subscription_status',
+        'trial_ends_at',
+        'monthly_fee',
+        'max_students',
+        'max_instructors',
+        'features',
     ];
 
     protected $casts = [
-        'subscription_expires_at' => 'datetime',
-        'settings' => 'array',
+        'trial_ends_at' => 'datetime',
+        'operating_days' => 'array',
+        'features' => 'array',
+        'monthly_fee' => 'decimal:2',
+        'max_students' => 'integer',
+        'max_instructors' => 'integer',
     ];
 
     // === RELATIONSHIPS ===
@@ -97,77 +113,13 @@ class School extends Model
     public function payments()
     {
         return $this->hasManyThrough(
-            Payment::class, 
-            Invoice::class, 
+            Payment::class,
+            Invoice::class,
             'student', // Foreign key on invoices table (student_id)
             'invoiceId', // Foreign key on payments table
             'id', // Local key on schools table
             'id' // Local key on invoices table
-        )->whereHas('invoice', function($query) {
-            $query->whereHas('student', function($q) {
-                $q->where('school_id', $this->id);
-            });
-        });
-    }
-
-    // === HELPER METHODS ===
-
-    /**
-     * Check if school has active subscription
-     */
-    public function hasActiveSubscription(): bool
-    {
-        return $this->subscription_status === 'active' && 
-               (!$this->subscription_expires_at || $this->subscription_expires_at->isFuture());
-    }
-
-    /**
-     * Check if subscription is expired
-     */
-    public function isSubscriptionExpired(): bool
-    {
-        return $this->subscription_expires_at && $this->subscription_expires_at->isPast();
-    }
-
-    /**
-     * Get subscription status with expiry check
-     */
-    public function getSubscriptionStatusAttribute($value)
-    {
-        if ($value === 'active' && $this->isSubscriptionExpired()) {
-            return 'expired';
-        }
-        return $value;
-    }
-
-    /**
-     * Get monthly revenue for this school
-     */
-    public function getMonthlyRevenue($month = null, $year = null)
-    {
-        $month = $month ?: now()->month;
-        $year = $year ?: now()->year;
-
-        return Payment::whereHas('invoice', function($query) {
-            $query->whereHas('student', function($q) {
-                $q->where('school_id', $this->id);
-            });
-        })
-        ->whereMonth('created_at', $month)
-        ->whereYear('created_at', $year)
-        ->sum('amount');
-    }
-
-    /**
-     * Get total revenue for this school
-     */
-    public function getTotalRevenue()
-    {
-        return Payment::whereHas('invoice', function($query) {
-            $query->whereHas('student', function($q) {
-                $q->where('school_id', $this->id);
-            });
-        })->sum('amount');
+        );
     }
 
     // === SCOPES ===
@@ -181,19 +133,7 @@ class School extends Model
     }
 
     /**
-     * Scope for schools with active subscriptions
-     */
-    public function scopeActiveSubscription($query)
-    {
-        return $query->where('subscription_status', 'active')
-                    ->where(function($q) {
-                        $q->whereNull('subscription_expires_at')
-                          ->orWhere('subscription_expires_at', '>', now());
-                    });
-    }
-
-    /**
-     * Scope for trial subscriptions
+     * Scope for schools on trial
      */
     public function scopeTrial($query)
     {
@@ -201,14 +141,93 @@ class School extends Model
     }
 
     /**
-     * Scope for expired subscriptions
+     * Scope for paid schools
      */
-    public function scopeExpired($query)
+    public function scopePaid($query)
     {
-        return $query->where('subscription_status', 'expired')
-                    ->orWhere(function($q) {
-                        $q->where('subscription_status', 'active')
-                          ->where('subscription_expires_at', '<=', now());
-                    });
+        return $query->where('subscription_status', 'active');
+    }
+
+    // === ACCESSORS ===
+
+    /**
+     * Check if school is on trial
+     */
+    public function getIsTrialAttribute()
+    {
+        return $this->subscription_status === 'trial';
+    }
+
+    /**
+     * Get remaining trial days
+     */
+    public function getRemainingTrialDaysAttribute()
+    {
+        if (!$this->is_trial || !$this->trial_ends_at) {
+            return 0;
+        }
+
+        return max(0, $this->trial_ends_at->diffInDays(now()));
+    }
+
+    /**
+     * Check if trial has expired
+     */
+    public function getTrialExpiredAttribute()
+    {
+        return $this->is_trial && $this->trial_ends_at && $this->trial_ends_at->isPast();
+    }
+
+    // === MUTATORS ===
+
+    /**
+     * Automatically generate slug from name
+     */
+    public function setNameAttribute($value)
+    {
+        $this->attributes['name'] = $value;
+        $this->attributes['slug'] = Str::slug($value);
+    }
+
+    // === HELPER METHODS ===
+
+    /**
+     * Get the school's admin user
+     */
+    public function getAdminUser()
+    {
+        return $this->users()->where('role', 'admin')->first();
+    }
+
+    /**
+     * Count total students
+     */
+    public function getTotalStudentsCount()
+    {
+        return $this->students()->count();
+    }
+
+    /**
+     * Count total instructors
+     */
+    public function getTotalInstructorsCount()
+    {
+        return $this->instructors()->count();
+    }
+
+    /**
+     * Check if school can add more students
+     */
+    public function canAddStudents()
+    {
+        return $this->getTotalStudentsCount() < $this->max_students;
+    }
+
+    /**
+     * Check if school can add more instructors
+     */
+    public function canAddInstructors()
+    {
+        return $this->getTotalInstructorsCount() < $this->max_instructors;
     }
 }

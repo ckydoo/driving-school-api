@@ -5,10 +5,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminLogController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminFleetController;
-use App\Http\Controllers\Admin\AdminLogController;  
 use App\Http\Controllers\Admin\AdminBackupController;
 use App\Http\Controllers\Admin\AdminCourseController;
 use App\Http\Controllers\Admin\AdminReportController;
@@ -16,10 +16,23 @@ use App\Http\Controllers\Admin\AdminSchoolController;
 use App\Http\Controllers\Admin\AdminSystemController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\SchoolRegistrationController;
 use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 
+// School Registration Routes (add these BEFORE the auth middleware group)
+Route::get('/register', [SchoolRegistrationController::class, 'showRegistrationForm'])
+    ->name('school.register.form')
+    ->middleware('guest');
 
+Route::post('/register', [SchoolRegistrationController::class, 'register'])
+    ->name('school.register')
+    ->middleware('guest');
+
+// Optional: Add a redirect from /school-register to /register for SEO
+Route::get('/school-register', function () {
+    return redirect('/register', 301);
+});
 // === LANDING PAGES ===
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/features', [LandingController::class, 'features'])->name('features');

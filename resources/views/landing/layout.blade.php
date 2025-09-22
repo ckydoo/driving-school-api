@@ -5,24 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="@yield('description', 'Professional Driving School Management System - Streamline your driving school operations with our comprehensive platform.')">
     <title>@yield('title', 'DriveSync Pro - Professional Driving School Management System')</title>
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- AOS Animation -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    
+
     <style>
         :root {
             --primary: #2563eb;
@@ -261,13 +261,13 @@
             .hero h1 {
                 font-size: 2.5rem;
             }
-            
+
             .hero p {
                 font-size: 1.1rem;
             }
         }
     </style>
-    
+
     @stack('styles')
 </head>
 <body>
@@ -277,11 +277,11 @@
             <a class="navbar-brand" href="{{ route('home') }}">
                 <i class="fas fa-car"></i> DriveSync Pro
             </a>
-            
+
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
@@ -300,8 +300,8 @@
                         <a class="nav-link" href="{{ route('contact') }}">Contact</a>
                     </li>
                     <li class="nav-item ms-3">
-                        <a class="btn btn-outline-primary" href="{{ route('login') }}">
-                            <i class="fas fa-sign-in-alt"></i> Login
+                        <a class="btn btn-outline-primary" href="{{ route('school.register.form') }}">
+                            <i class="fas fa-sign-in-alt"></i> Get Started
                         </a>
                     </li>
                 </ul>
@@ -328,7 +328,7 @@
                         <a href="#" class="me-3"><i class="fab fa-instagram fa-lg"></i></a>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Product</h5>
                     <ul class="list-unstyled">
@@ -338,7 +338,7 @@
                         <li><a href="#">API</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Company</h5>
                     <ul class="list-unstyled">
@@ -348,7 +348,7 @@
                         <li><a href="#">Press</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Support</h5>
                     <ul class="list-unstyled">
@@ -358,7 +358,7 @@
                         <li><a href="#">Status</a></li>
                     </ul>
                 </div>
-                
+
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Legal</h5>
                     <ul class="list-unstyled">
@@ -369,9 +369,9 @@
                     </ul>
                 </div>
             </div>
-            
+
             <hr class="my-4" style="border-color: rgba(255,255,255,0.1);">
-            
+
             <div class="row align-items-center">
                 <div class="col-md-6">
                     <p class="mb-0">&copy; {{ date('Y') }} DriveSync Pro. All rights reserved.</p>
@@ -385,10 +385,10 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- AOS Animation -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    
+
     <script>
         // Initialize AOS
         AOS.init({
@@ -420,7 +420,7 @@
             });
         });
     </script>
-    
+
     @stack('scripts')
 </body>
 </html>

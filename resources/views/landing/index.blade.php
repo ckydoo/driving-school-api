@@ -12,13 +12,33 @@
                 <div class="hero-content">
                     <h1>Transform Your Driving School</h1>
                     <p class="lead">Streamline operations, track student progress, and grow your business with our comprehensive driving school management platform.</p>
+
+                    {{-- Updated CTA buttons with registration link --}}
                     <div class="d-flex flex-column flex-md-row gap-3">
-                        <a href="{{ route('login') }}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-rocket"></i> Get Started Free
+                        <a href="{{ route('school.register.form') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-rocket"></i> Start Free Trial
                         </a>
-                        <a href="#features" class="btn btn-outline-light btn-lg">
-                            <i class="fas fa-play"></i> Watch Demo
+                        <a href="{{ route('login') }}" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-sign-in-alt"></i> Sign In
                         </a>
+                    </div>
+
+                    {{-- Added trial benefits --}}
+                    <div class="mt-4">
+                        <div class="d-flex flex-wrap align-items-center text-white-50">
+                            <span class="me-3 mb-2">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                30-day free trial
+                            </span>
+                            <span class="me-3 mb-2">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                No credit card required
+                            </span>
+                            <span class="me-3 mb-2">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                Setup in 2 minutes
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -43,7 +63,7 @@
             <div class="col-lg-3 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="100">
                 <div class="stats-card">
                     <span class="stats-number">{{ number_format($stats['total_schools']) }}+</span>
-                    <span class="stats-label">Active Schools</span>
+                    <span class="stats-label">Schools</span>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="200">
@@ -61,7 +81,7 @@
             <div class="col-lg-3 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="400">
                 <div class="stats-card">
                     <span class="stats-number">{{ number_format($stats['total_courses']) }}+</span>
-                    <span class="stats-label">Active Courses</span>
+                    <span class="stats-label">Courses</span>
                 </div>
             </div>
         </div>
@@ -74,79 +94,79 @@
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto text-center" data-aos="fade-up">
                 <h2 class="display-4 fw-bold mb-3">Everything You Need to Succeed</h2>
-                <p class="lead text-muted">Our comprehensive platform provides all the tools you need to manage and grow your driving school efficiently.</p>
+                <p class="lead text-muted">Comprehensive tools designed specifically for driving school management.</p>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="100">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
                             <i class="fas fa-users"></i>
                         </div>
-                        <h4>Student Management</h4>
-                        <p class="text-muted">Complete student profiles, progress tracking, and communication tools to keep everyone connected.</p>
+                        <h5 class="card-title">Student Management</h5>
+                        <p class="card-text">Track student progress, manage enrollments, and monitor lesson completion rates with detailed profiles and communication tools.</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="200">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
                             <i class="fas fa-calendar-alt"></i>
                         </div>
-                        <h4>Smart Scheduling</h4>
-                        <p class="text-muted">Intelligent scheduling system that optimizes instructor time and prevents conflicts.</p>
+                        <h5 class="card-title">Smart Scheduling</h5>
+                        <p class="card-text">Easy lesson scheduling with instructor availability, vehicle assignment, and automated reminders for students and instructors.</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="300">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
-                            <i class="fas fa-credit-card"></i>
+                            <i class="fas fa-car-side"></i>
                         </div>
-                        <h4>Billing & Payments</h4>
-                        <p class="text-muted">Automated invoicing, payment tracking, and integrated payment processing.</p>
+                        <h5 class="card-title">Fleet Management</h5>
+                        <p class="card-text">Track your vehicles, maintenance schedules, assignments to instructors, and ensure optimal utilization of your fleet.</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="400">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
-                            <i class="fas fa-car"></i>
+                            <i class="fas fa-dollar-sign"></i>
                         </div>
-                        <h4>Fleet Management</h4>
-                        <p class="text-muted">Track vehicles, maintenance schedules, and assign cars to instructors efficiently.</p>
+                        <h5 class="card-title">Payment Tracking</h5>
+                        <p class="card-text">Invoice generation, payment tracking, financial reporting, and automated reminders for outstanding balances.</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="500">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
-                            <i class="fas fa-chart-bar"></i>
+                            <i class="fas fa-chart-line"></i>
                         </div>
-                        <h4>Analytics & Reports</h4>
-                        <p class="text-muted">Comprehensive reporting and analytics to make data-driven business decisions.</p>
+                        <h5 class="card-title">Analytics & Reports</h5>
+                        <p class="card-text">Detailed insights into your school's performance, revenue trends, student progress, and instructor efficiency metrics.</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="600">
                 <div class="card h-100">
-                    <div class="card-body text-center p-4">
+                    <div class="card-body text-center">
                         <div class="feature-icon">
                             <i class="fas fa-mobile-alt"></i>
                         </div>
-                        <h4>Mobile Access</h4>
-                        <p class="text-muted">Access your dashboard anywhere with our responsive design and mobile app.</p>
+                        <h5 class="card-title">Mobile Ready</h5>
+                        <p class="card-text">Access your school data anywhere with our fully responsive design that works perfectly on all devices and screen sizes.</p>
                     </div>
                 </div>
             </div>
@@ -154,34 +174,35 @@
     </div>
 </section>
 
-<!-- Featured Schools Section -->
+<!-- Featured Schools Section (if any schools exist) -->
 @if($featuredSchools->count() > 0)
 <section class="py-5 bg-light">
     <div class="container">
-        <div class="row mb-5">
-            <div class="col-lg-8 mx-auto text-center" data-aos="fade-up">
-                <h2 class="display-4 fw-bold mb-3">Trusted by Schools Worldwide</h2>
-                <p class="lead text-muted">Join thousands of driving schools already using DriveSync Pro to transform their operations.</p>
+        <div class="row mb-4">
+            <div class="col-12 text-center" data-aos="fade-up">
+                <h2 class="display-5 fw-bold mb-3">Trusted by Leading Driving Schools</h2>
+                <p class="lead text-muted">Join successful driving schools already using our platform.</p>
             </div>
         </div>
-        
+
         <div class="row">
             @foreach($featuredSchools as $school)
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="{{ $loop->index * 100 }}">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
-                                <i class="fas fa-school"></i>
-                            </div>
-                            <div>
-                                <h5 class="card-title mb-0">{{ $school->name }}</h5>
-                                <small class="text-muted">{{ $school->city }}, {{ $school->country }}</small>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                <i class="fas fa-school fa-2x"></i>
                             </div>
                         </div>
-                        <p class="card-text text-muted">
-                            <i class="fas fa-users text-primary"></i> {{ $school->students_count }} Active Students
-                        </p>
+                        <h5 class="card-title">{{ $school->name }}</h5>
+                        <p class="card-text text-muted">{{ $school->city }}, {{ $school->country }}</p>
+                        <div class="d-flex justify-content-center">
+                            <small class="text-muted">
+                                <i class="fas fa-users me-1"></i>
+                                {{ $school->students_count }} {{ Str::plural('student', $school->students_count) }}
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -191,24 +212,137 @@
 </section>
 @endif
 
-<!-- CTA Section -->
-<section class="py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+<!-- Call to Action Section -->
+<section class="py-5 bg-primary text-white">
     <div class="container">
-        <div class="row">
-            <div class="col-lg-8 mx-auto text-center text-white" data-aos="fade-up">
-                <h2 class="display-4 fw-bold mb-3">Ready to Get Started?</h2>
-                <p class="lead mb-4">Join thousands of driving schools already using DriveSync Pro. Start your free trial today!</p>
-                <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
-                    <a href="{{ route('login') }}" class="btn btn-light btn-lg">
-                        <i class="fas fa-rocket"></i> Start Free Trial
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center" data-aos="fade-up">
+                <h2 class="display-5 fw-bold mb-3">Ready to Transform Your Driving School?</h2>
+                <p class="lead mb-4">Join hundreds of driving schools already using our platform to streamline their operations and grow their business.</p>
+
+                {{-- Free trial highlight --}}
+                <div class="mb-4">
+                    <div class="badge bg-light text-primary fs-6 px-4 py-2 mb-3">
+                        <i class="fas fa-gift me-2"></i>
+                        <strong>30-Day Free Trial</strong> - No Credit Card Required
+                    </div>
+                </div>
+
+                {{-- Main CTA buttons --}}
+                <div class="d-flex flex-column flex-md-row gap-3 justify-content-center mb-4">
+                    <a href="{{ route('school.register.form') }}" class="btn btn-light btn-lg text-primary">
+                        <i class="fas fa-rocket me-2"></i>
+                        <strong>Register Your School</strong>
                     </a>
-                    <a href="{{ route('contact') }}" class="btn btn-outline-light btn-lg">
-                        <i class="fas fa-phone"></i> Contact Sales
+                    <a href="{{ route('features') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-list-check me-2"></i>
+                        View All Features
                     </a>
+                </div>
+
+                {{-- Trust indicators --}}
+                <div class="row text-center mt-5">
+                    <div class="col-md-4">
+                        <i class="fas fa-shield-alt fa-2x mb-2 text-light"></i>
+                        <p class="mb-0"><small>Bank-level Security</small></p>
+                    </div>
+                    <div class="col-md-4">
+                        <i class="fas fa-headset fa-2x mb-2 text-light"></i>
+                        <p class="mb-0"><small>24/7 Support</small></p>
+                    </div>
+                    <div class="col-md-4">
+                        <i class="fas fa-clock fa-2x mb-2 text-light"></i>
+                        <p class="mb-0"><small>2-minute Setup</small></p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
+<!-- Testimonials Section (optional - you can add this later) -->
+<section class="py-5">
+    <div class="container">
+        <div class="row mb-5">
+            <div class="col-12 text-center" data-aos="fade-up">
+                <h2 class="display-5 fw-bold mb-3">What Our Customers Say</h2>
+                <p class="lead text-muted">Don't just take our word for it - see what driving school owners are saying.</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-warning mb-3">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p class="card-text">"DriveSync Pro has completely transformed how we manage our driving school. The scheduling system alone has saved us hours each week!"</p>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Sarah Johnson</h6>
+                                <small class="text-muted">Elite Driving School</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-warning mb-3">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p class="card-text">"The payment tracking and invoicing features are fantastic. We've reduced outstanding payments by 60% since implementing this system."</p>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Michael Chen</h6>
+                                <small class="text-muted">Metro Driving Academy</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="300">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-warning mb-3">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p class="card-text">"Easy to use, great support team, and the reporting features help us make better business decisions. Highly recommended!"</p>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Emma Rodriguez</h6>
+                                <small class="text-muted">Fast Track Driving</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 @endsection
