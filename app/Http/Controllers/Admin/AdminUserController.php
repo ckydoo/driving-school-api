@@ -3,14 +3,15 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\School;
+use App\Models\Schedule;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class AdminUserController extends Controller
 {
@@ -416,6 +417,195 @@ public function getUserStats()
     ];
 
     return response()->json($stats);
+}
+/**
+ * Show students list for current school admin
+ */
+public function students()
+{
+    $currentUser = Auth::user();
+
+    // Ensure user is admin
+    if (!$currentUser || !$currentUser->isAdmin()) {
+        abort(403, 'Access denied. Administrator privileges required.');
+    }
+
+    $query = User::with(['school'])
+        ->where('role', 'student');
+
+    // If school admin, restrict to their school only
+    if (!$currentUser->isSuperAdmin() && $currentUser->school_id) {
+        $query->where('school_id', $currentUser->school_id);
+    }
+
+    // Handle search
+    if (request()->filled('search')) {
+        $search = request('search');
+        $query->where(function($q) use ($search) {
+            $q->where('name', 'LIKE', "%{$search}%")
+              ->orWhere('email', 'LIKE', "%{$search}%")
+              ->orWhere('phone', 'LIKE', "%{$search}%");
+        });
+    }
+
+    // Handle status filter
+    if (request()->filled('status')) {
+        $query->where('status', request('status'));
+    }
+
+    // Handle school filter (super admin only)
+    if ($currentUser->isSuperAdmin() && request()->filled('school_id')) {
+        $query->where('school_id', request('school_id'));
+    }
+
+    $students = $query->orderBy('created_at', 'desc')
+        ->paginate(15)
+        ->appends(request()->query());
+
+    // Get schools for filter (super admin only)
+    $schools = $currentUser->isSuperAdmin()
+        ? School::orderBy('name')->get()
+        : collect();
+
+    // Get stats
+    $stats = [
+        'total_students' => User::where('role', 'student')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+        'active_students' => User::where('role', 'student')
+            ->where('status', 'active')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+        'inactive_students' => User::where('role', 'student')
+            ->where('status', 'inactive')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+    ];
+
+    return view('admin.users.students', compact('students', 'schools', 'stats', 'currentUser'));
+}
+
+/**
+ * Show instructors list for current school admin
+ */
+public function instructors()
+{
+    $currentUser = Auth::user();
+
+    // Ensure user is admin
+    if (!$currentUser || !$currentUser->isAdmin()) {
+        abort(403, 'Access denied. Administrator privileges required.');
+    }
+
+    $query = User::with(['school'])
+        ->where('role', 'instructor');
+
+    // If school admin, restrict to their school only
+    if (!$currentUser->isSuperAdmin() && $currentUser->school_id) {
+        $query->where('school_id', $currentUser->school_id);
+    }
+
+    // Handle search
+    if (request()->filled('search')) {
+        $search = request('search');
+        $query->where(function($q) use ($search) {
+            $q->where('name', 'LIKE', "%{$search}%")
+              ->orWhere('email', 'LIKE', "%{$search}%")
+              ->orWhere('phone', 'LIKE', "%{$search}%");
+        });
+    }
+
+    // Handle status filter
+    if (request()->filled('status')) {
+        $query->where('status', request('status'));
+    }
+
+    // Handle school filter (super admin only)
+    if ($currentUser->isSuperAdmin() && request()->filled('school_id')) {
+        $query->where('school_id', request('school_id'));
+    }
+
+    $instructors = $query->orderBy('created_at', 'desc')
+        ->paginate(15)
+        ->appends(request()->query());
+
+    // Get schools for filter (super admin only)
+    $schools = $currentUser->isSuperAdmin()
+        ? School::orderBy('name')->get()
+        : collect();
+
+    // Get stats
+    $stats = [
+        'total_instructors' => User::where('role', 'instructor')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+        'active_instructors' => User::where('role', 'instructor')
+            ->where('status', 'active')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+        'inactive_instructors' => User::where('role', 'instructor')
+            ->where('status', 'inactive')
+            ->when(!$currentUser->isSuperAdmin(), function($q) use ($currentUser) {
+                return $q->where('school_id', $currentUser->school_id);
+            })->count(),
+    ];
+
+    return view('admin.users.instructors', compact('instructors', 'schools', 'stats', 'currentUser'));
+}
+
+/**
+ * Show instructor's students (for instructor dashboard)
+ */
+public function instructorStudents()
+{
+    $user = Auth::user();
+
+    if (!$user || !in_array($user->role, ['super_admin', 'admin', 'instructor'])) {
+        abort(403, 'Access denied. Instructor privileges required.');
+    }
+
+    // Get students assigned to this instructor through schedules
+    $studentIds = Schedule::where('instructor_id', $user->id)
+        ->distinct()
+        ->pluck('student_id');
+
+    $query = User::with(['school'])
+        ->whereIn('id', $studentIds)
+        ->where('role', 'student');
+
+    // Handle search
+    if (request()->filled('search')) {
+        $search = request('search');
+        $query->where(function($q) use ($search) {
+            $q->where('name', 'LIKE', "%{$search}%")
+              ->orWhere('email', 'LIKE', "%{$search}%")
+              ->orWhere('phone', 'LIKE', "%{$search}%");
+        });
+    }
+
+    $students = $query->orderBy('name')
+        ->paginate(15)
+        ->appends(request()->query());
+
+    // Get stats for this instructor's students
+    $stats = [
+        'total_students' => $studentIds->count(),
+        'active_students' => User::whereIn('id', $studentIds)
+            ->where('status', 'active')
+            ->count(),
+        'total_lessons' => Schedule::where('instructor_id', $user->id)
+            ->count(),
+        'completed_lessons' => Schedule::where('instructor_id', $user->id)
+            ->where('status', 'completed')
+            ->count(),
+    ];
+
+    return view('instructor.students', compact('students', 'stats'));
 }
 }
 

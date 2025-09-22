@@ -12,7 +12,7 @@ class Schedule extends Model
 
     protected $fillable = [
         'student',
-        'instructor', 
+        'instructor',
         'course',
         'car',
         'start',
@@ -27,6 +27,7 @@ class Schedule extends Model
         'recurring_end_date',
         'notes',
         'instructor_notes',
+        'school_id',
     ];
 
     protected $casts = [
@@ -195,4 +196,33 @@ class Schedule extends Model
             'status' => 'completed'
         ]);
     }
+
+
+/**
+ * Get the school that owns the schedule
+ */
+public function school()
+{
+    return $this->belongsTo(School::class);
+}
+
+/**
+ * Scope to filter schedules by school
+ */
+public function scopeForSchool($query, $schoolId)
+{
+    return $query->where('school_id', $schoolId);
+}
+
+/**
+ * Scope to filter schedules for the current user's school
+ */
+public function scopeForCurrentUser($query, $user)
+{
+    if (!$user->isSuperAdmin() && $user->school_id) {
+        return $query->where('school_id', $user->school_id);
+    }
+
+    return $query;
+}
 }
