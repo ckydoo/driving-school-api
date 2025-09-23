@@ -65,7 +65,6 @@
         }
 
         .login-header .logo {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             width: 80px;
             height: 80px;
             border-radius: 50%;
@@ -73,7 +72,6 @@
             align-items: center;
             justify-content: center;
             margin: 0 auto 1rem;
-            color: white;
             font-size: 2rem;
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
@@ -179,12 +177,12 @@
             .login-wrapper {
                 padding: 15px;
             }
-            
+
             .login-card {
                 padding: 2rem 1.5rem;
                 border-radius: 15px;
             }
-            
+
             .login-header .logo {
                 width: 70px;
                 height: 70px;
@@ -206,10 +204,8 @@
         <div class="login-container">
             <div class="login-card">
                 <div class="login-header">
-                    <div class="logo">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <h2>Drive Sync Pro</h2>
+                        <img src="{{ asset('assets/drivesynclogo.png') }}" alt="Logo" style="height: 120px; vertical-align: middle;">
+                    <h2>DriveSync Pro</h2>
                     <p>Welcome back! Please sign in to your account.</p>
                 </div>
 
@@ -229,7 +225,7 @@
 
                 <form method="POST" action="{{ route('login') }}" id="loginForm">
                     @csrf
-                    
+
                     <div class="mb-3">
                         <label for="email" class="form-label">Email Address</label>
                         <div class="input-group">
@@ -284,15 +280,6 @@
                         </label>
                     </div>
 
-                    <div class="d-grid mb-3">
-                        <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
-                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                            <span class="button-text">
-                                <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                            </span>
-                        </button>
-                    </div>
-
                     @if (Route::has('password.request'))
                         <div class="text-center">
                             <a class="small text-muted" href="{{ route('password.request') }}">
@@ -300,7 +287,22 @@
                             </a>
                         </div>
                     @endif
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            <span class="button-text">
+                                Sign In
+                            </span>
+                        </button>
+                    </div>
+
                 </form>
+
+        <!-- Login Link -->
+        <div class="login-link text-center">
+            Don`t have an account?
+            <a href="{{ route('school.register.form') }}">Register here</a>
+        </div>
             </div>
 
             <div class="footer-text">
@@ -328,7 +330,7 @@
                 togglePassword.addEventListener('click', function() {
                     const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
                     passwordField.setAttribute('type', type);
-                    
+
                     // Toggle icon
                     if (type === 'text') {
                         toggleIcon.classList.remove('fa-eye');

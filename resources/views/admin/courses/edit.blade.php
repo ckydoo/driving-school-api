@@ -79,39 +79,8 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="description" class="font-weight-bold">Description</label>
-                            <textarea class="form-control @error('description') is-invalid @enderror"
-                                      id="description"
-                                      name="description"
-                                      rows="3"
-                                      maxlength="1000"
-                                      placeholder="Describe what this course covers...">{{ old('description', $course->description) }}</textarea>
-                            @error('description')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                            <small class="form-text text-muted">Optional. Maximum 1000 characters.</small>
-                        </div>
-
                         <!-- Course Details -->
                         <div class="row">
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="type" class="font-weight-bold">Course Type <span class="text-danger">*</span></label>
-                                    <select class="form-control @error('type') is-invalid @enderror"
-                                            id="type"
-                                            name="type"
-                                            required>
-                                        <option value="">Select Type...</option>
-                                        <option value="theory" {{ old('type', $course->type) === 'theory' ? 'selected' : '' }}>Theory Only</option>
-                                        <option value="practical" {{ old('type', $course->type) === 'practical' ? 'selected' : '' }}>Practical Only</option>
-                                        <option value="combined" {{ old('type', $course->type) === 'combined' ? 'selected' : '' }}>Theory + Practical</option>
-                                    </select>
-                                    @error('type')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
 
                             <div class="col-md-3">
                                 <div class="form-group">
@@ -131,65 +100,8 @@
                                     @enderror
                                 </div>
                             </div>
-
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="lessons" class="font-weight-bold">Number of Lessons <span class="text-danger">*</span></label>
-                                    <input type="number"
-                                           class="form-control @error('lessons') is-invalid @enderror"
-                                           id="lessons"
-                                           name="lessons"
-                                           value="{{ old('lessons', $course->lessons) }}"
-                                           required
-                                           min="1"
-                                           max="100"
-                                           placeholder="10">
-                                    @error('lessons')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <div class="col-md-3">
-                                <div class="form-group">
-                                    <label for="duration_minutes" class="font-weight-bold">Duration (Minutes) <span class="text-danger">*</span></label>
-                                    <select class="form-control @error('duration_minutes') is-invalid @enderror"
-                                            id="duration_minutes"
-                                            name="duration_minutes"
-                                            required>
-                                        <option value="">Select Duration...</option>
-                                        <option value="30" {{ old('duration_minutes', $course->duration_minutes) == '30' ? 'selected' : '' }}>30 minutes</option>
-                                        <option value="45" {{ old('duration_minutes', $course->duration_minutes) == '45' ? 'selected' : '' }}>45 minutes</option>
-                                        <option value="60" {{ old('duration_minutes', $course->duration_minutes) == '60' ? 'selected' : '' }}>1 hour</option>
-                                        <option value="90" {{ old('duration_minutes', $course->duration_minutes) == '90' ? 'selected' : '' }}>1.5 hours</option>
-                                        <option value="120" {{ old('duration_minutes', $course->duration_minutes) == '120' ? 'selected' : '' }}>2 hours</option>
-                                        <option value="180" {{ old('duration_minutes', $course->duration_minutes) == '180' ? 'selected' : '' }}>3 hours</option>
-                                        <option value="240" {{ old('duration_minutes', $course->duration_minutes) == '240' ? 'selected' : '' }}>4 hours</option>
-                                    </select>
-                                    @error('duration_minutes')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
                         </div>
-
-                        <!-- Additional Information -->
-                        <div class="form-group">
-                            <label for="requirements" class="font-weight-bold">Requirements</label>
-                            <textarea class="form-control @error('requirements') is-invalid @enderror"
-                                      id="requirements"
-                                      name="requirements"
-                                      rows="3"
-                                      maxlength="500"
-                                      placeholder="Any specific requirements for this course (e.g., minimum age, documents needed, etc.)">{{ old('requirements', $course->requirements) }}</textarea>
-                            @error('requirements')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                            <small class="form-text text-muted">Optional. Maximum 500 characters.</small>
-                        </div>
-
-
-
+                        <br>
                         <!-- Submit Buttons -->
                         <div class="form-group row mb-0">
                             <div class="col-md-12">

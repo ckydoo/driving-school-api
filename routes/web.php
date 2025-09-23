@@ -108,6 +108,17 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     Route::resource('payments', AdminPaymentController::class);
     Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verifyPayment'])->name('payments.verify');
+// Invoice Management Routes
+Route::resource('invoices', AdminInvoiceController::class);
+Route::post('invoices/{invoice}/send', [AdminInvoiceController::class, 'sendInvoice'])->name('invoices.send');
+Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.downloadPdf');
+Route::post('invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->name('invoices.markAsPaid');
+
+// Payment Management Routes
+Route::resource('payments', AdminPaymentController::class);
+Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verifyPayment'])->name('payments.verify');
+Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund'])->name('payments.refund');
+Route::get('payments/stats', [AdminPaymentController::class, 'getStats'])->name('payments.stats');
 
     // === REPORTS ===
     Route::get('reports', [AdminReportController::class, 'index'])->name('reports.index');

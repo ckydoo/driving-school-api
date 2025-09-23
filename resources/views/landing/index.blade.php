@@ -16,10 +16,10 @@
                     {{-- Updated CTA buttons with registration link --}}
                     <div class="d-flex flex-column flex-md-row gap-3">
                         <a href="{{ route('school.register.form') }}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-rocket"></i> Start Free Trial
+                            Start Free Trial
                         </a>
                         <a href="{{ route('login') }}" class="btn btn-outline-light btn-lg">
-                            <i class="fas fa-sign-in-alt"></i> Sign In
+                             Sign In
                         </a>
                     </div>
 
@@ -231,11 +231,11 @@
                 {{-- Main CTA buttons --}}
                 <div class="d-flex flex-column flex-md-row gap-3 justify-content-center mb-4">
                     <a href="{{ route('school.register.form') }}" class="btn btn-light btn-lg text-primary">
-                        <i class="fas fa-rocket me-2"></i>
+
                         <strong>Register Your School</strong>
                     </a>
                     <a href="{{ route('features') }}" class="btn btn-outline-light btn-lg">
-                        <i class="fas fa-list-check me-2"></i>
+
                         View All Features
                     </a>
                 </div>

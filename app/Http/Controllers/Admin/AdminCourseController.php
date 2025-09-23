@@ -68,13 +68,8 @@ class AdminCourseController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
             'price' => 'required|numeric|min:0|max:999999.99',
-            'lessons' => 'required|integer|min:1|max:100',
-            'type' => 'required|in:theory,practical,combined',
-            'duration_minutes' => 'required|integer|min:30|max:480',
             'status' => 'required|in:active,inactive',
-            'requirements' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -85,13 +80,8 @@ class AdminCourseController extends Controller
 
         Course::create([
             'name' => $request->name,
-            'description' => $request->description,
             'price' => $request->price,
-            'lessons' => $request->lessons,
-            'type' => $request->type,
-            'duration_minutes' => $request->duration_minutes,
             'status' => $request->status,
-            'requirements' => $request->requirements,
             'school_id' => $schoolId,
         ]);
 
@@ -152,13 +142,8 @@ class AdminCourseController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
             'price' => 'required|numeric|min:0|max:999999.99',
-            'lessons' => 'required|integer|min:1|max:100',
-            'type' => 'required|in:theory,practical,combined',
-            'duration_minutes' => 'required|integer|min:30|max:480',
             'status' => 'required|in:active,inactive',
-            'requirements' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -169,13 +154,8 @@ class AdminCourseController extends Controller
 
         $course->update([
             'name' => $request->name,
-            'description' => $request->description,
             'price' => $request->price,
-            'lessons' => $request->lessons,
-            'type' => $request->type,
-            'duration_minutes' => $request->duration_minutes,
             'status' => $request->status,
-            'requirements' => $request->requirements,
         ]);
 
         return redirect()->route('admin.courses.show', $course)

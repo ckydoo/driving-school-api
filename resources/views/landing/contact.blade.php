@@ -44,7 +44,7 @@
                 <div class="d-flex align-items-center justify-content-center">
                     <i class="fas fa-comments text-primary me-2"></i>
                     <strong>Live Chat:</strong>
-                    <span class="ms-2">Available 9am-6pm EST</span>
+                    <span class="ms-2">Available 9am-6pm CAT</span>
                 </div>
             </div>
         </div>
@@ -66,14 +66,14 @@
                             <h3 class="fw-bold">Send us a Message</h3>
                             <p class="text-muted">We'll get back to you within 24 hours</p>
                         </div>
-                        
+
                         @if(session('success'))
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             <i class="fas fa-check-circle"></i> {{ session('success') }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         @endif
-                        
+
                         @if($errors->any())
                         <div class="alert alert-danger">
                             <h6><i class="fas fa-exclamation-triangle"></i> Please fix the following errors:</h6>
@@ -84,7 +84,7 @@
                             </ul>
                         </div>
                         @endif
-                        
+
                         <form action="{{ route('contact.submit') }}" method="POST" id="contactForm">
                             @csrf
                             <div class="row">
@@ -92,7 +92,7 @@
                                     <label for="name" class="form-label">
                                         <i class="fas fa-user text-primary me-1"></i> Full Name *
                                     </label>
-                                    <input type="text" class="form-control form-control-lg @error('name') is-invalid @enderror" 
+                                    <input type="text" class="form-control form-control-lg @error('name') is-invalid @enderror"
                                            id="name" name="name" value="{{ old('name') }}" required
                                            placeholder="Enter your full name">
                                     @error('name')
@@ -103,7 +103,7 @@
                                     <label for="email" class="form-label">
                                         <i class="fas fa-envelope text-primary me-1"></i> Email Address *
                                     </label>
-                                    <input type="email" class="form-control form-control-lg @error('email') is-invalid @enderror" 
+                                    <input type="email" class="form-control form-control-lg @error('email') is-invalid @enderror"
                                            id="email" name="email" value="{{ old('email') }}" required
                                            placeholder="Enter your email address">
                                     @error('email')
@@ -111,13 +111,13 @@
                                     @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="phone" class="form-label">
                                         <i class="fas fa-phone text-primary me-1"></i> Phone Number
                                     </label>
-                                    <input type="tel" class="form-control form-control-lg" 
+                                    <input type="tel" class="form-control form-control-lg"
                                            id="phone" name="phone" value="{{ old('phone') }}"
                                            placeholder="Enter your phone number">
                                 </div>
@@ -125,17 +125,17 @@
                                     <label for="company" class="form-label">
                                         <i class="fas fa-building text-primary me-1"></i> School/Company Name
                                     </label>
-                                    <input type="text" class="form-control form-control-lg" 
+                                    <input type="text" class="form-control form-control-lg"
                                            id="company" name="company" value="{{ old('company') }}"
                                            placeholder="Enter your school name">
                                 </div>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="subject" class="form-label">
                                     <i class="fas fa-tag text-primary me-1"></i> Subject *
                                 </label>
-                                <select class="form-select form-select-lg @error('subject') is-invalid @enderror" 
+                                <select class="form-select form-select-lg @error('subject') is-invalid @enderror"
                                         id="subject" name="subject" required>
                                     <option value="">Choose a subject...</option>
                                     <option value="General Inquiry" {{ old('subject') === 'General Inquiry' ? 'selected' : '' }}>General Inquiry</option>
@@ -150,12 +150,12 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
-                            
+
                             <div class="mb-4">
                                 <label for="message" class="form-label">
                                     <i class="fas fa-comment text-primary me-1"></i> Message *
                                 </label>
-                                <textarea class="form-control @error('message') is-invalid @enderror" 
+                                <textarea class="form-control @error('message') is-invalid @enderror"
                                           id="message" name="message" rows="6" required
                                           placeholder="Tell us how we can help you...">{{ old('message') }}</textarea>
                                 @error('message')
@@ -165,7 +165,7 @@
                                     <span id="charCount">0</span>/1000 characters
                                 </div>
                             </div>
-                            
+
                             <div class="mb-4">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="newsletter" name="newsletter" value="1" {{ old('newsletter') ? 'checked' : '' }}>
@@ -174,7 +174,7 @@
                                     </label>
                                 </div>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
                                     <i class="fas fa-paper-plane"></i> Send Message
@@ -187,7 +187,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Contact Info Sidebar -->
             <div class="col-lg-4" data-aos="fade-left">
                 <!-- Contact Information Card -->
@@ -199,7 +199,7 @@
                             </div>
                             <h4 class="fw-bold">Contact Information</h4>
                         </div>
-                        
+
                         <div class="contact-info">
                             <div class="d-flex align-items-start mb-4">
                                 <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 45px; height: 45px;">
@@ -212,7 +212,7 @@
                                     <a href="mailto:support@drivesyncpro.com" class="text-decoration-none">support@drivesyncpro.com</a>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex align-items-start mb-4">
                                 <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 45px; height: 45px;">
                                     <i class="fas fa-phone"></i>
@@ -221,10 +221,10 @@
                                     <h6 class="mb-1 fw-bold">Call Us</h6>
                                     <a href="tel:+1234567890" class="text-decoration-none">+263784666891</a>
                                     <br>
-                                    <small class="text-muted">Mon-Fri 9am-6pm EST</small>
+                                    <small class="text-muted">Mon-Fri 9am-6pm CAT</small>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex align-items-start mb-4">
                                 <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 45px; height: 45px;">
                                     <i class="fas fa-map-marker-alt"></i>
@@ -238,7 +238,7 @@
                                     </address>
                                 </div>
                             </div>
-                            
+
                             <div class="d-flex align-items-start">
                                 <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 45px; height: 45px;">
                                     <i class="fas fa-comments"></i>
@@ -255,7 +255,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Business Hours Card -->
                 <div class="card shadow-lg border-0 mb-4">
                     <div class="card-body p-4">
@@ -265,7 +265,7 @@
                             </div>
                             <h5 class="fw-bold">Business Hours</h5>
                         </div>
-                        
+
                         <div class="business-hours">
                             <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
                                 <span class="fw-semibold">Monday - Friday</span>
@@ -284,7 +284,7 @@
                                 <span class="text-muted">Limited Hours</span>
                             </div>
                         </div>
-                        
+
                         <div class="mt-3 p-3 bg-light rounded">
                             <div class="d-flex align-items-center">
                                 <div class="bg-success rounded-circle me-2" style="width: 8px; height: 8px;"></div>
@@ -308,7 +308,7 @@
                 <p class="lead text-muted">Choose the method that works best for you</p>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="100">
                 <div class="card h-100 border-0 shadow-sm text-center">
@@ -324,7 +324,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="200">
                 <div class="card h-100 border-0 shadow-sm text-center">
                     <div class="card-body p-4">
@@ -339,7 +339,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="300">
                 <div class="card h-100 border-0 shadow-sm text-center">
                     <div class="card-body p-4">
@@ -359,7 +359,7 @@
 </section>
 
 <!-- Map Section (Optional) -->
-<section class="py-5">
+{{-- <section class="py-5">
     <div class="container">
         <div class="row">
             <div class="col-12" data-aos="fade-up">
@@ -376,7 +376,9 @@
                                 <div class="text-white text-center">
                                     <i class="fas fa-map fa-3x mb-3"></i>
                                     <p class="mb-0">Interactive Map</p>
-                                    <small>123 Business Avenue, Suite 100<br>New York, NY 10001</small>
+                                    <small>Corner C` Avenue & 4th Street<br>
+                                        Mutare<br>
+                                        Zimbabwe</small>
                                 </div>
                             </div>
                             <!-- You can replace this with an actual Google Maps embed -->
@@ -386,7 +388,7 @@
             </div>
         </div>
     </div>
-</section>
+</section> --}}
 
 @endsection
 
@@ -397,11 +399,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageTextarea = document.getElementById('message');
     const charCount = document.getElementById('charCount');
     const maxLength = 1000;
-    
+
     function updateCharCount() {
         const currentLength = messageTextarea.value.length;
         charCount.textContent = currentLength;
-        
+
         if (currentLength > maxLength * 0.9) {
             charCount.style.color = '#dc3545'; // Red when approaching limit
         } else if (currentLength > maxLength * 0.7) {
@@ -410,32 +412,32 @@ document.addEventListener('DOMContentLoaded', function() {
             charCount.style.color = '#6c757d'; // Gray normal state
         }
     }
-    
+
     messageTextarea.addEventListener('input', updateCharCount);
     updateCharCount(); // Initial count
-    
+
     // Form submission with loading state
     const contactForm = document.getElementById('contactForm');
     const submitBtn = document.getElementById('submitBtn');
     const originalBtnText = submitBtn.innerHTML;
-    
+
     contactForm.addEventListener('submit', function() {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-        
+
         // Re-enable button after 5 seconds as fallback
         setTimeout(() => {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnText;
         }, 5000);
     });
-    
+
     // Form validation
     const requiredFields = contactForm.querySelectorAll('[required]');
-    
+
     function validateForm() {
         let isValid = true;
-        
+
         requiredFields.forEach(field => {
             if (!field.value.trim()) {
                 isValid = false;
@@ -444,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.classList.remove('is-invalid');
             }
         });
-        
+
         // Email validation
         const emailField = document.getElementById('email');
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -452,16 +454,16 @@ document.addEventListener('DOMContentLoaded', function() {
             isValid = false;
             emailField.classList.add('is-invalid');
         }
-        
+
         submitBtn.disabled = !isValid;
     }
-    
+
     // Real-time validation
     requiredFields.forEach(field => {
         field.addEventListener('input', validateForm);
         field.addEventListener('blur', validateForm);
     });
-    
+
     // Initial validation
     validateForm();
 });

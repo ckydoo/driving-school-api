@@ -199,8 +199,8 @@
     <div class="registration-container">
         <!-- Logo Section -->
         <div class="logo">
-            <i class="fas fa-car"></i>
-            <h1>Register Your School</h1>
+            <img src="{{ asset('assets/drivesynclogo.png') }}" alt="Logo" style="height: 120px; vertical-align: middle;">
+            <h1>Registration</h1>
             <p>Start managing your driving school today</p>
         </div>
 
@@ -277,7 +277,7 @@
                     placeholder="Enter admin email address"
                 >
                 <label for="admin_email">
-                    <i class="fas fa-envelope me-2"></i>Admin Email
+                    <i class="fas fa-envelope me-2"></i>Email Address
                 </label>
                 @error('admin_email')
                     <div class="invalid-feedback">{{ $message }}</div>
@@ -326,7 +326,7 @@
 
             <!-- Submit Button -->
             <button type="submit" class="btn btn-register" id="submitBtn">
-                <i class="fas fa-rocket me-2"></i>
+
                 <span class="btn-text">Start Free Trial</span>
                 <span class="spinner-border spinner-border-sm d-none" role="status"></span>
             </button>
