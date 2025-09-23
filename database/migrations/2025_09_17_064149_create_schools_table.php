@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('phone');
             $table->text('address');
             $table->string('city');
+            $table->string('license_number')->nullable();
             $table->string('country')->default('Zimbabwe');
             $table->string('website')->nullable();
             $table->time('start_time')->default('08:00');

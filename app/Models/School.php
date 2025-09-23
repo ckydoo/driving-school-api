@@ -32,6 +32,10 @@ class School extends Model
         'features',
     ];
 
+    protected $attributes = [
+        'operating_days' => '["Mon", "Tue", "Wed", "Thur", "Fri", "Str"]',
+    ];
+    
     protected $casts = [
         'trial_ends_at' => 'datetime',
         'operating_days' => 'array',
