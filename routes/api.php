@@ -10,7 +10,8 @@ use App\Http\Controllers\Api\{
     ScheduleController,
     InvoiceController,
     PaymentController,
-    SyncController
+    SyncController,
+    ProductionSyncController
 };
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +38,26 @@ Route::get('/health', function () {
         'environment' => app()->environment(),
     ]);
 });
+Route::middleware(['auth:sanctum', 'school.member'])->group(function () {
+    
+    // Production sync endpoints
+    Route::prefix('sync')->group(function () {
+        Route::get('/school-state', [ProductionSyncController::class, 'getSchoolSyncState']);
+        Route::post('/register-device', [ProductionSyncController::class, 'registerDevice']);
+        Route::get('/download-all', [ProductionSyncController::class, 'downloadAllSchoolData']);
+        Route::get('/download-incremental', [ProductionSyncController::class, 'downloadIncrementalChanges']);
+        Route::get('/download-table', [ProductionSyncController::class, 'downloadTableData']);
+        Route::post('/upload-changes', [ProductionSyncController::class, 'uploadChanges']);
+        Route::get('/status', [ProductionSyncController::class, 'getSyncStatus']);
+        
+        // Legacy endpoints (keep for backward compatibility)
+        Route::get('/download', [SyncController::class, 'download']);
+        Route::post('/upload', [SyncController::class, 'upload']);
+    });
+});
+
+// Health check (no auth required)
+Route::get('/health', [ProductionSyncController::class, 'health']);
 
 // === PROTECTED ROUTES (Authentication required) ===
 Route::middleware('auth:sanctum')->group(function () {

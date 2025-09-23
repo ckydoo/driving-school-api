@@ -9,6 +9,7 @@ use App\Http\Middleware\SchoolScopeMiddleware;
 use App\Http\Middleware\FlexibleAdminMiddleware;
 use App\Http\Middleware\SuperAdminOnlyMiddleware;
 use App\Http\Middleware\SchoolAdminOnlyMiddleware;
+use App\Http\Middleware\SchoolMemberMiddleware;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'school_admin_only' => SchoolAdminOnlyMiddleware::class, // NEW
             'instructor' => \App\Http\Middleware\InstructorMiddleware::class,
             'student' => \App\Http\Middleware\StudentMiddleware::class,
+            'school.member' => \App\Http\Middleware\SchoolMemberMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
