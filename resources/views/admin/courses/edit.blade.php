@@ -1,22 +1,24 @@
-{{-- resources/views/admin/courses/create.blade.php --}}
+{{-- resources/views/admin/courses/edit.blade.php --}}
 
 @extends('admin.layouts.app')
 
-@section('title', 'Create New Course')
+@section('title', 'Edit Course - ' . $course->name)
 
 @section('content')
 <div class="container-fluid">
     <!-- Page Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-plus"></i> Create New Course
+            <i class="fas fa-edit"></i> Edit Course
         </h1>
-        <a href="{{ route('admin.courses.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Back to Courses
-        </a>
+        <div>
+            <a href="{{ route('admin.courses.show', $course) }}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Back to Course
+            </a>
+        </div>
     </div>
 
-    <!-- Create Course Form -->
+    <!-- Edit Course Form -->
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="card shadow mb-4">
@@ -36,8 +38,9 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('admin.courses.store') }}">
+                    <form method="POST" action="{{ route('admin.courses.update', $course) }}">
                         @csrf
+                        @method('PUT')
 
                         <!-- Basic Information -->
                         <div class="row">
@@ -48,7 +51,7 @@
                                            class="form-control @error('name') is-invalid @enderror"
                                            id="name"
                                            name="name"
-                                           value="{{ old('name') }}"
+                                           value="{{ old('name', $course->name) }}"
                                            required
                                            maxlength="255"
                                            placeholder="e.g., Basic Driving Course">
@@ -66,8 +69,8 @@
                                             name="status"
                                             required>
                                         <option value="">Select Status...</option>
-                                        <option value="active" {{ old('status') === 'active' ? 'selected' : '' }}>Active</option>
-                                        <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                        <option value="active" {{ old('status', $course->status) === 'active' ? 'selected' : '' }}>Active</option>
+                                        <option value="inactive" {{ old('status', $course->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
                                     </select>
                                     @error('status')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -83,7 +86,7 @@
                                       name="description"
                                       rows="3"
                                       maxlength="1000"
-                                      placeholder="Describe what this course covers...">{{ old('description') }}</textarea>
+                                      placeholder="Describe what this course covers...">{{ old('description', $course->description) }}</textarea>
                             @error('description')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -100,9 +103,9 @@
                                             name="type"
                                             required>
                                         <option value="">Select Type...</option>
-                                        <option value="theory" {{ old('type') === 'theory' ? 'selected' : '' }}>Theory Only</option>
-                                        <option value="practical" {{ old('type') === 'practical' ? 'selected' : '' }}>Practical Only</option>
-                                        <option value="combined" {{ old('type') === 'combined' ? 'selected' : '' }}>Theory + Practical</option>
+                                        <option value="theory" {{ old('type', $course->type) === 'theory' ? 'selected' : '' }}>Theory Only</option>
+                                        <option value="practical" {{ old('type', $course->type) === 'practical' ? 'selected' : '' }}>Practical Only</option>
+                                        <option value="combined" {{ old('type', $course->type) === 'combined' ? 'selected' : '' }}>Theory + Practical</option>
                                     </select>
                                     @error('type')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -117,7 +120,7 @@
                                            class="form-control @error('price') is-invalid @enderror"
                                            id="price"
                                            name="price"
-                                           value="{{ old('price') }}"
+                                           value="{{ old('price', $course->price) }}"
                                            required
                                            min="0"
                                            max="999999.99"
@@ -136,7 +139,7 @@
                                            class="form-control @error('lessons') is-invalid @enderror"
                                            id="lessons"
                                            name="lessons"
-                                           value="{{ old('lessons') }}"
+                                           value="{{ old('lessons', $course->lessons) }}"
                                            required
                                            min="1"
                                            max="100"
@@ -155,13 +158,13 @@
                                             name="duration_minutes"
                                             required>
                                         <option value="">Select Duration...</option>
-                                        <option value="30" {{ old('duration_minutes') == '30' ? 'selected' : '' }}>30 minutes</option>
-                                        <option value="45" {{ old('duration_minutes') == '45' ? 'selected' : '' }}>45 minutes</option>
-                                        <option value="60" {{ old('duration_minutes') == '60' ? 'selected' : '' }}>1 hour</option>
-                                        <option value="90" {{ old('duration_minutes') == '90' ? 'selected' : '' }}>1.5 hours</option>
-                                        <option value="120" {{ old('duration_minutes') == '120' ? 'selected' : '' }}>2 hours</option>
-                                        <option value="180" {{ old('duration_minutes') == '180' ? 'selected' : '' }}>3 hours</option>
-                                        <option value="240" {{ old('duration_minutes') == '240' ? 'selected' : '' }}>4 hours</option>
+                                        <option value="30" {{ old('duration_minutes', $course->duration_minutes) == '30' ? 'selected' : '' }}>30 minutes</option>
+                                        <option value="45" {{ old('duration_minutes', $course->duration_minutes) == '45' ? 'selected' : '' }}>45 minutes</option>
+                                        <option value="60" {{ old('duration_minutes', $course->duration_minutes) == '60' ? 'selected' : '' }}>1 hour</option>
+                                        <option value="90" {{ old('duration_minutes', $course->duration_minutes) == '90' ? 'selected' : '' }}>1.5 hours</option>
+                                        <option value="120" {{ old('duration_minutes', $course->duration_minutes) == '120' ? 'selected' : '' }}>2 hours</option>
+                                        <option value="180" {{ old('duration_minutes', $course->duration_minutes) == '180' ? 'selected' : '' }}>3 hours</option>
+                                        <option value="240" {{ old('duration_minutes', $course->duration_minutes) == '240' ? 'selected' : '' }}>4 hours</option>
                                     </select>
                                     @error('duration_minutes')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -178,7 +181,7 @@
                                       name="requirements"
                                       rows="3"
                                       maxlength="500"
-                                      placeholder="Any specific requirements for this course (e.g., minimum age, documents needed, etc.)">{{ old('requirements') }}</textarea>
+                                      placeholder="Any specific requirements for this course (e.g., minimum age, documents needed, etc.)">{{ old('requirements', $course->requirements) }}</textarea>
                             @error('requirements')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -191,9 +194,9 @@
                         <div class="form-group row mb-0">
                             <div class="col-md-12">
                                 <button type="submit" class="btn btn-primary mr-2">
-                                    <i class="fas fa-save"></i> Create Course
+                                    <i class="fas fa-save"></i> Update Course
                                 </button>
-                                <a href="{{ route('admin.courses.index') }}" class="btn btn-secondary">
+                                <a href="{{ route('admin.courses.show', $course) }}" class="btn btn-secondary">
                                     <i class="fas fa-times"></i> Cancel
                                 </a>
                             </div>
@@ -220,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const total = price * lessons;
 
         // You can add a total display here if needed
-        console.log('Course total would be: $' + total.toFixed(2));
+        console.log('Course total would be:  + total.toFixed(2));
     }
 
     priceInput.addEventListener('input', updateCalculations);

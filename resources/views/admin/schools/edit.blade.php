@@ -107,22 +107,6 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="state" class="form-label">State/Province <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control @error('state') is-invalid @enderror"
-                                       id="state" name="state" value="{{ old('state', $school->state) }}" required>
-                                @error('state')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="zip_code" class="form-label">ZIP/Postal Code <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control @error('zip_code') is-invalid @enderror"
-                                       id="zip_code" name="zip_code" value="{{ old('zip_code', $school->zip_code) }}" required>
-                                @error('zip_code')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
                         </div>
 
                         <div class="row">

@@ -127,19 +127,6 @@
                             </small>
                         </div>
 
-                        <!-- Additional Notes -->
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <textarea id="notes"
-                                      name="notes"
-                                      class="form-control @error('notes') is-invalid @enderror"
-                                      rows="3"
-                                      placeholder="Any additional notes about this vehicle...">{{ old('notes') }}</textarea>
-                            @error('notes')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
                         <div class="d-flex justify-content-between">
                             <a href="{{ route('admin.fleet.index') }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Cancel

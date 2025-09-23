@@ -230,4 +230,34 @@ class School extends Model
     {
         return $this->getTotalInstructorsCount() < $this->max_instructors;
     }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($school) {
+            if (empty($school->invitation_code)) {
+                $school->invitation_code = self::generateUniqueInvitationCode($school->name);
+            }
+        });
+    }
+
+    private static function generateUniqueInvitationCode($schoolName)
+    {
+        // Get first 3 letters of each word in school name
+        $words = explode(' ', strtoupper($schoolName));
+        $prefix = '';
+
+        foreach (array_slice($words, 0, 2) as $word) {
+            $prefix .= substr($word, 0, 3);
+        }
+
+        // Add random number
+        do {
+            $suffix = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $code = $prefix . $suffix;
+        } while (self::where('invitation_code', $code)->exists());
+
+        return $code;
+    }
 }

@@ -197,13 +197,13 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge badge-secondary">{{ $vehicle->modelyear }}</span>
+                                        <span class="badge badge-secondary text-dark">{{ $vehicle->modelyear }}</span>
                                     </td>
                                     <td>
                                         <span class="badge badge-{{
                                             $vehicle->status === 'available' ? 'success' :
                                             ($vehicle->status === 'maintenance' ? 'warning' : 'danger')
-                                        }}">
+                                        }}  text-dark">
                                             {{ ucfirst($vehicle->status) }}
                                         </span>
                                     </td>

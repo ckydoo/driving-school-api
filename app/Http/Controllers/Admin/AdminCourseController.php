@@ -1,78 +1,41 @@
 <?php
-// app/Http/Controllers/Admin/AdminCourseController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Course, User, School};
+use App\Models\{Course, School};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class AdminCourseController extends Controller
 {
-    /**
-     * Ensure admin access and get current user
-     */
-    protected function ensureAdminAccess()
+    private function getSchoolScope()
     {
-        $user = Auth::user();
-        if (!$user || !$user->isAdmin()) {
-            abort(403, 'Access denied. Administrator privileges required.');
+        $user = auth()->user();
+
+        if ($user->role === 'super_admin') {
+            return null; // No restriction
         }
-        return $user;
+
+        return $user->school_id;
     }
 
-    /**
-     * Apply school filtering to query based on user role
-     */
-    protected function applySchoolFilter($query, $currentUser)
-    {
-        // If school admin, restrict to their school only
-        if (!$currentUser->isSuperAdmin() && $currentUser->school_id) {
-            $query->where(function($q) use ($currentUser) {
-                $q->where('school_id', $currentUser->school_id)
-                  ->orWhereNull('school_id'); // Include courses without school assignment for now
-            });
-        }
-        
-        return $query;
-    }
-
-    /**
-     * Check if user can access this course
-     */
-    protected function canAccessCourse($currentUser, $course)
-    {
-        // Super admins can access all courses
-        if ($currentUser->isSuperAdmin()) {
-            return true;
-        }
-        
-        // School admins can access courses from their school OR courses without school assignment
-        if ($currentUser->school_id) {
-            return $course->school_id === $currentUser->school_id || $course->school_id === null;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Display a listing of courses
-     */
     public function index(Request $request)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        $query = Course::query();
-        
-        // Apply school filtering first
-        $query = $this->applySchoolFilter($query, $currentUser);
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        $query = Course::with('school')
+                      ->when($schoolId, fn($q) => $q->where('school_id', $schoolId));
 
         // Search functionality
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where('name', 'like', "%{$search}%");
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
         }
 
         // Filter by status
@@ -80,171 +43,170 @@ class AdminCourseController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Filter by price range
-        if ($request->filled('min_price')) {
-            $query->where('price', '>=', $request->min_price);
-        }
-        if ($request->filled('max_price')) {
-            $query->where('price', '<=', $request->max_price);
+        // Filter by school (super admin only)
+        if ($request->filled('school_id') && !$schoolId) {
+            $query->where('school_id', $request->school_id);
         }
 
-        // Sort
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
+        $courses = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        $courses = $query->paginate(15);
+        // Get schools for filter (super admin only)
+        $schools = $user->role === 'super_admin' ? School::orderBy('name')->get() : collect();
 
-        return view('admin.courses.index', compact('courses', 'currentUser'));
+        return view('admin.courses.index', compact('courses', 'schools'));
     }
 
-    /**
-     * Show the form for creating a new course
-     */
     public function create()
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        return view('admin.courses.create', compact('currentUser'));
+        return view('admin.courses.create');
     }
 
-    /**
-     * Store a newly created course in storage
-     */
     public function store(Request $request)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope() ?: $user->school_id;
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0|max:999999.99',
             'description' => 'nullable|string|max:1000',
-            'duration_hours' => 'nullable|integer|min:1|max:1000',
-            'lessons_included' => 'nullable|integer|min:1|max:200',
+            'price' => 'required|numeric|min:0|max:999999.99',
+            'lessons' => 'required|integer|min:1|max:100',
+            'type' => 'required|in:theory,practical,combined',
+            'duration_minutes' => 'required|integer|min:30|max:480',
             'status' => 'required|in:active,inactive',
-            'type' => 'nullable|in:practical,theory,combined',
+            'requirements' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+            return redirect()->back()
+                           ->withErrors($validator)
+                           ->withInput();
         }
 
-        $courseData = $request->all();
-        $courseData['school_id'] = $currentUser->isSuperAdmin() 
-            ? ($request->school_id ?? $currentUser->school_id) 
-            : $currentUser->school_id;
-
-        Course::create($courseData);
+        Course::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            'lessons' => $request->lessons,
+            'type' => $request->type,
+            'duration_minutes' => $request->duration_minutes,
+            'status' => $request->status,
+            'requirements' => $request->requirements,
+            'school_id' => $schoolId,
+        ]);
 
         return redirect()->route('admin.courses.index')
-            ->with('success', 'Course created successfully.');
+                        ->with('success', 'Course created successfully.');
     }
 
-    /**
-     * Display the specified course
-     */
     public function show(Course $course)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        // Check if user can access this course
-        if (!$this->canAccessCourse($currentUser, $course)) {
-            abort(403, 'Access denied. You can only view courses from your school.');
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        // Check permissions
+        if ($schoolId && $course->school_id !== $schoolId) {
+            abort(403, 'Access denied.');
         }
-        
-        // Auto-assign school_id if it's missing and user is school admin
-        if (!$course->school_id && $currentUser->school_id) {
-            $course->update(['school_id' => $currentUser->school_id]);
-            $course->refresh();
-        }
-        
-        // Load relationships for statistics
-        $course->load(['schedules', 'invoices']);
-        
-        return view('admin.courses.show', compact('course', 'currentUser'));
+
+        // Load relationships
+        $course->load([
+            'schedules.student',
+            'schedules.instructor',
+            'invoices.student'
+        ]);
+
+        // Calculate stats
+        $stats = [
+            'total_enrollments' => $course->schedules->count(),
+            'completed_lessons' => $course->schedules->where('status', 'completed')->count(),
+            'total_revenue' => $course->invoices->sum('total_amount'),
+            'active_students' => $course->schedules->where('status', '!=', 'completed')->unique('student')->count(),
+        ];
+
+        return view('admin.courses.show', compact('course', 'stats'));
     }
 
-    /**
-     * Show the form for editing the specified course
-     */
     public function edit(Course $course)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        // Check if user can edit this course
-        if (!$this->canAccessCourse($currentUser, $course)) {
-            abort(403, 'Access denied. You can only edit courses from your school.');
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        // Check permissions
+        if ($schoolId && $course->school_id !== $schoolId) {
+            abort(403, 'Access denied.');
         }
-        
-        return view('admin.courses.edit', compact('course', 'currentUser'));
+
+        return view('admin.courses.edit', compact('course'));
     }
 
-    /**
-     * Update the specified course in storage
-     */
     public function update(Request $request, Course $course)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        // Check if user can update this course
-        if (!$this->canAccessCourse($currentUser, $course)) {
-            abort(403, 'Access denied. You can only edit courses from your school.');
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        // Check permissions
+        if ($schoolId && $course->school_id !== $schoolId) {
+            abort(403, 'Access denied.');
         }
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0|max:999999.99',
             'description' => 'nullable|string|max:1000',
-            'duration_hours' => 'nullable|integer|min:1|max:1000',
-            'lessons_included' => 'nullable|integer|min:1|max:200',
+            'price' => 'required|numeric|min:0|max:999999.99',
+            'lessons' => 'required|integer|min:1|max:100',
+            'type' => 'required|in:theory,practical,combined',
+            'duration_minutes' => 'required|integer|min:30|max:480',
             'status' => 'required|in:active,inactive',
-            'type' => 'nullable|in:practical,theory,combined',
+            'requirements' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+            return redirect()->back()
+                           ->withErrors($validator)
+                           ->withInput();
         }
 
-        $updateData = $request->all();
-        
-        // Ensure school_id is set correctly
-        if (!$currentUser->isSuperAdmin()) {
-            $updateData['school_id'] = $currentUser->school_id;
-        } elseif (!isset($updateData['school_id'])) {
-            $updateData['school_id'] = $course->school_id ?: $currentUser->school_id;
-        }
-
-        $course->update($updateData);
+        $course->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            'lessons' => $request->lessons,
+            'type' => $request->type,
+            'duration_minutes' => $request->duration_minutes,
+            'status' => $request->status,
+            'requirements' => $request->requirements,
+        ]);
 
         return redirect()->route('admin.courses.show', $course)
-            ->with('success', 'Course updated successfully.');
+                        ->with('success', 'Course updated successfully.');
     }
 
-    /**
-     * Remove the specified course from storage
-     */
     public function destroy(Course $course)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        // Check if user can delete this course
-        if (!$this->canAccessCourse($currentUser, $course)) {
-            abort(403, 'Access denied. You can only delete courses from your school.');
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        // Check permissions
+        if ($schoolId && $course->school_id !== $schoolId) {
+            abort(403, 'Access denied.');
         }
-        
-        // Check if course is being used in schedules or invoices
+
+        // Check if course is being used
         if ($course->schedules()->count() > 0) {
-            return back()->with('error', 'Cannot delete course that is being used in schedules.');
+            return redirect()->route('admin.courses.index')
+                           ->with('error', 'Cannot delete course that has existing schedules.');
         }
-        
+
         if ($course->invoices()->count() > 0) {
-            return back()->with('error', 'Cannot delete course that is being used in invoices.');
+            return redirect()->route('admin.courses.index')
+                           ->with('error', 'Cannot delete course that has existing invoices.');
         }
-        
+
         $course->delete();
 
         return redirect()->route('admin.courses.index')
-            ->with('success', 'Course deleted successfully.');
+                        ->with('success', 'Course deleted successfully.');
     }
 
     /**
@@ -252,20 +214,18 @@ class AdminCourseController extends Controller
      */
     public function toggleStatus(Course $course)
     {
-        $currentUser = $this->ensureAdminAccess();
-        
-        // Check if user can modify this course
-        if (!$this->canAccessCourse($currentUser, $course)) {
-            abort(403, 'Access denied. You can only modify courses from your school.');
+        $user = auth()->user();
+        $schoolId = $this->getSchoolScope();
+
+        // Check permissions
+        if ($schoolId && $course->school_id !== $schoolId) {
+            abort(403, 'Access denied.');
         }
-        
+
         $newStatus = $course->status === 'active' ? 'inactive' : 'active';
         $course->update(['status' => $newStatus]);
 
-        $message = $newStatus === 'active' 
-            ? 'Course activated successfully.' 
-            : 'Course deactivated successfully.';
-
-        return back()->with('success', $message);
+        return redirect()->back()
+                        ->with('success', "Course status updated to {$newStatus}.");
     }
 }

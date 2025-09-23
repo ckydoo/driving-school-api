@@ -20,7 +20,6 @@ class Fleet extends Model
         'status',
         'school_id',    // ✅ Ensure this is included
         'instructor',
-        'notes',        // ✅ Add notes field
     ];
 
     protected $casts = [

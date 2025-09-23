@@ -1,5 +1,4 @@
 <?php
-// app/Models/Course.php - Complete Version
 
 namespace App\Models;
 
@@ -14,21 +13,19 @@ class Course extends Model
         'name',
         'price',
         'status',
-        'type',
         'school_id',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
-        'duration_hours' => 'integer',
-        'lessons_included' => 'integer',
-        'school_id' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     // === RELATIONSHIPS ===
 
     /**
-     * Get the school this course belongs to
+     * Course belongs to a school
      */
     public function school()
     {
@@ -36,7 +33,7 @@ class Course extends Model
     }
 
     /**
-     * Get schedules for this course
+     * Course has many schedules
      */
     public function schedules()
     {
@@ -44,7 +41,7 @@ class Course extends Model
     }
 
     /**
-     * Get invoices for this course
+     * Course has many invoices
      */
     public function invoices()
     {
@@ -52,22 +49,12 @@ class Course extends Model
     }
 
     /**
-     * Get students enrolled in this course through schedules
+     * Students enrolled in this course (through schedules)
      */
     public function students()
     {
         return $this->belongsToMany(User::class, 'schedules', 'course', 'student')
                     ->where('role', 'student')
-                    ->distinct();
-    }
-
-    /**
-     * Get instructors teaching this course through schedules
-     */
-    public function instructors()
-    {
-        return $this->belongsToMany(User::class, 'schedules', 'course', 'instructor')
-                    ->where('role', 'instructor')
                     ->distinct();
     }
 
@@ -90,53 +77,22 @@ class Course extends Model
     }
 
     /**
-     * Scope for practical courses
+     * Scope by course type
      */
-    public function scopePractical($query)
+    public function scopeOfType($query, $type)
     {
-        return $query->where('type', 'practical');
+        return $query->where('type', $type);
     }
 
     /**
-     * Scope for theory courses
+     * Scope for courses within price range
      */
-    public function scopeTheory($query)
+    public function scopePriceBetween($query, $min, $max)
     {
-        return $query->where('type', 'theory');
+        return $query->whereBetween('price', [$min, $max]);
     }
 
-    /**
-     * Scope for combined courses
-     */
-    public function scopeCombined($query)
-    {
-        return $query->where('type', 'combined');
-    }
-
-    /**
-     * Scope for school-specific courses
-     */
-    public function scopeForSchool($query, $schoolId)
-    {
-        return $query->where('school_id', $schoolId);
-    }
-
-    /**
-     * Scope for current user's school (if not super admin)
-     */
-    public function scopeForCurrentUser($query, $user)
-    {
-        if (!$user->isSuperAdmin() && $user->school_id) {
-            return $query->where(function($q) use ($user) {
-                $q->where('school_id', $user->school_id)
-                  ->orWhereNull('school_id'); // Temporary: include unassigned courses
-            });
-        }
-        
-        return $query;
-    }
-
-    // === ACCESSORS & MUTATORS ===
+    // === ACCESSORS ===
 
     /**
      * Get formatted price
@@ -147,25 +103,30 @@ class Course extends Model
     }
 
     /**
-     * Get status badge color
+     * Get formatted duration
      */
-    public function getStatusColorAttribute()
+    public function getFormattedDurationAttribute()
     {
-        return match($this->status) {
-            'active' => 'success',
-            'inactive' => 'danger',
-            default => 'secondary'
-        };
+        $hours = floor($this->duration_minutes / 60);
+        $minutes = $this->duration_minutes % 60;
+
+        if ($hours > 0 && $minutes > 0) {
+            return "{$hours}h {$minutes}m";
+        } elseif ($hours > 0) {
+            return "{$hours}h";
+        } else {
+            return "{$minutes}m";
+        }
     }
 
     /**
-     * Get type badge color
+     * Get course type badge color
      */
-    public function getTypeColorAttribute()
+    public function getTypeBadgeColorAttribute()
     {
         return match($this->type) {
-            'practical' => 'primary',
             'theory' => 'info',
+            'practical' => 'success',
             'combined' => 'warning',
             default => 'secondary'
         };
@@ -184,50 +145,32 @@ class Course extends Model
      */
     public function getTotalRevenueAttribute()
     {
-        return $this->invoices()->where('status', 'paid')->sum('total_amount') ?? 0;
+        return $this->invoices()->sum('total_amount');
     }
 
     /**
-     * Get total students enrolled
+     * Get total enrollments
      */
-    public function getTotalStudentsAttribute()
+    public function getTotalEnrollmentsAttribute()
     {
-        return $this->students()->count();
+        return $this->schedules()->distinct('student')->count('student');
     }
 
     /**
-     * Get total lessons scheduled
-     */
-    public function getTotalLessonsAttribute()
-    {
-        return $this->schedules()->count();
-    }
-
-    /**
-     * Get completed lessons
+     * Get completed lessons count
      */
     public function getCompletedLessonsAttribute()
     {
         return $this->schedules()->where('status', 'completed')->count();
     }
 
-    // === BOOT METHOD ===
+    // === METHODS ===
 
     /**
-     * Boot method to handle automatic assignments
+     * Check if a user is enrolled in this course
      */
-    protected static function boot()
+    public function hasStudent($studentId)
     {
-        parent::boot();
-        
-        static::creating(function ($course) {
-            // Auto-assign school_id if not set
-            if (!$course->school_id) {
-                $user = auth()->user();
-                if ($user && $user->school_id && !$user->isSuperAdmin()) {
-                    $course->school_id = $user->school_id;
-                }
-            }
-        });
+        return $this->schedules()->where('student', $studentId)->exists();
     }
 }
