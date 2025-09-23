@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
 
 class Invoice extends Model
 {
@@ -11,8 +14,8 @@ class Invoice extends Model
 
     protected $fillable = [
         'invoice_number',
-        'student',
-        'course',
+        'student',         // Foreign key to users table
+        'course',          // Foreign key to courses table
         'lessons',
         'price_per_lesson',
         'total_amount',
@@ -20,145 +23,126 @@ class Invoice extends Model
         'due_date',
         'status',
         'notes',
-        'school_id',
-        'created_at',
-        'updated_at'
+        'used_lessons',
+        'courseName',      // Backup field for course name
     ];
 
     protected $casts = [
-        'due_date' => 'datetime',
-        'lessons' => 'integer',
         'price_per_lesson' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'amountpaid' => 'decimal:2',
+        'due_date' => 'datetime',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
     ];
 
-    // === RELATIONSHIPS ===
-
     /**
-     * Invoice belongs to a student (User)
+     * Relationship to Student (User model)
+     * Fixed to use correct foreign key column name
      */
-    public function student()
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'student');
+        return $this->belongsTo(User::class, 'student', 'id')
+                    ->withDefault([
+                        'fname' => 'Unknown',
+                        'lname' => '',
+                        'email' => 'No email',
+                        'phone' => null,
+                    ]);
     }
 
     /**
-     * Invoice belongs to a course
+     * Relationship to Course
+     * Fixed to use correct foreign key column name
      */
-    public function course()
+    public function course(): BelongsTo
     {
-        return $this->belongsTo(Course::class, 'course');
+        return $this->belongsTo(Course::class, 'course', 'id')
+                    ->withDefault([
+                        'name' => 'Unknown Course',
+                        'description' => null,
+                        'price' => 0,
+                        'status' => 'inactive',
+                    ]);
     }
 
     /**
-     * Invoice belongs to a school (via student relationship or direct if school_id exists)
+     * Relationship to Payments
      */
-    public function school()
+    public function payments(): HasMany
     {
-        // If you have school_id field, use direct relationship
-        if (in_array('school_id', $this->fillable) && $this->school_id) {
-            return $this->belongsTo(School::class, 'school_id');
-        }
-
-        // Otherwise, get school through student relationship
-        return $this->student ? $this->student->school() : null;
-    }
-/**
- * Get school ID through student relationship safely
- */
-public function getSchoolIdAttribute()
-{
-    // If invoice has direct school_id, use it
-    if (isset($this->attributes['school_id']) && $this->attributes['school_id']) {
-        return $this->attributes['school_id'];
-    }
-
-    // Otherwise get through student relationship
-    return $this->student ? $this->student->school_id : null;
-}
-    /**
-     * Invoice has many payments
-     */
-    public function payments()
-    {
-        return $this->hasMany(Payment::class, 'invoiceId');
-    }
-
-    // === ACCESSORS & MUTATORS ===
-
-    /**
-     * Get remaining balance
-     */
-    public function getRemainingBalanceAttribute()
-    {
-        return $this->total_amount - $this->amountpaid;
+        return $this->hasMany(Payment::class, 'invoiceId', 'id');
     }
 
     /**
-     * Get status with fallback
+     * Calculate remaining balance
      */
-    public function getStatusAttribute($value)
+    public function getBalanceAttribute(): float
     {
-        return $value ?: 'unpaid';
-    }
-
-    /**
-     * Set status
-     */
-    public function setStatusAttribute($value)
-    {
-        $this->attributes['status'] = $value;
-    }
-
-    /**
-     * Get formatted total amount
-     */
-    public function getFormattedTotalAttribute()
-    {
-        return '$' . number_format($this->total_amount, 2);
-    }
-
-    /**
-     * Get formatted amount paid
-     */
-    public function getFormattedAmountPaidAttribute()
-    {
-        return '$' . number_format($this->amountpaid, 2);
-    }
-
-    /**
-     * Get formatted remaining balance
-     */
-    public function getFormattedRemainingBalanceAttribute()
-    {
-        return '$' . number_format($this->remaining_balance, 2);
-    }
-
-    // === HELPER METHODS ===
-
-    /**
-     * Check if invoice is fully paid
-     */
-    public function isPaid()
-    {
-        return $this->status === 'paid' || $this->amountpaid >= $this->total_amount;
+        return round($this->total_amount - $this->amountpaid, 2);
     }
 
     /**
      * Check if invoice is overdue
      */
-    public function isOverdue()
+    public function getIsOverdueAttribute(): bool
     {
-        return $this->due_date < now() && !$this->isPaid();
+        if (!$this->due_date || $this->status === 'paid') {
+            return false;
+        }
+
+        return Carbon::now()->isAfter($this->due_date) && $this->balance > 0;
     }
 
     /**
-     * Automatically update status based on payment amount
+     * Get days overdue (0 if not overdue)
      */
-    public function updateStatus()
+    public function getDaysOverdueAttribute(): int
+    {
+        if (!$this->is_overdue) {
+            return 0;
+        }
+
+        return Carbon::now()->diffInDays($this->due_date);
+    }
+
+    /**
+     * Get status with overdue check
+     */
+    public function getStatusDisplayAttribute(): string
+    {
+        if ($this->status === 'paid') {
+            return 'paid';
+        }
+
+        if ($this->is_overdue) {
+            return 'overdue';
+        }
+
+        return $this->status ?? 'unpaid';
+    }
+
+    /**
+     * Get status badge class for display
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        switch ($this->status_display) {
+            case 'paid':
+                return 'badge-success';
+            case 'overdue':
+                return 'badge-danger';
+            case 'partial':
+                return 'badge-warning';
+            default:
+                return 'badge-secondary';
+        }
+    }
+
+    /**
+     * Update status based on payment amount
+     */
+    public function updateStatusFromPayments(): void
     {
         if ($this->amountpaid >= $this->total_amount) {
             $this->status = 'paid';
@@ -169,55 +153,14 @@ public function getSchoolIdAttribute()
         }
 
         $this->save();
-        return $this;
     }
 
     /**
-     * Add payment to this invoice
+     * Scope for filtering by status
      */
-    public function addPayment($amount, $method = 'cash', $notes = null)
+    public function scopeByStatus($query, $status)
     {
-        // Create payment record
-        $payment = $this->payments()->create([
-            'userId' => $this->student,
-            'amount' => $amount,
-            'method' => $method,
-            'paymentDate' => now(),
-            'status' => 'Paid',
-            'notes' => $notes,
-        ]);
-
-        // Update invoice
-        $this->increment('amountpaid', $amount);
-        $this->updateStatus();
-
-        return $payment;
-    }
-
-    // === SCOPES ===
-
-    /**
-     * Scope for unpaid invoices
-     */
-    public function scopeUnpaid($query)
-    {
-        return $query->where('status', 'unpaid');
-    }
-
-    /**
-     * Scope for paid invoices
-     */
-    public function scopePaid($query)
-    {
-        return $query->where('status', 'paid');
-    }
-
-    /**
-     * Scope for partially paid invoices
-     */
-    public function scopePartiallyPaid($query)
-    {
-        return $query->where('status', 'partial');
+        return $query->where('status', $status);
     }
 
     /**
@@ -225,23 +168,56 @@ public function getSchoolIdAttribute()
      */
     public function scopeOverdue($query)
     {
-        return $query->where('due_date', '<', now())
-                    ->whereNotIn('status', ['paid']);
+        return $query->where('due_date', '<', Carbon::now())
+                    ->where('status', '!=', 'paid')
+                    ->where('total_amount', '>', DB::raw('amountpaid'));
     }
 
     /**
-     * Scope by student
+     * Scope for pending invoices
      */
-    public function scopeForStudent($query, $studentId)
+    public function scopePending($query)
     {
-        return $query->where('student', $studentId);
+        return $query->where('status', 'unpaid')
+                    ->orWhere('status', 'partial');
     }
 
     /**
-     * Scope by course
+     * Scope for school filtering
      */
-    public function scopeForCourse($query, $courseId)
+    public function scopeForSchool($query, $schoolId)
     {
-        return $query->where('course', $courseId);
+        if (!$schoolId) {
+            return $query;
+        }
+
+        return $query->whereHas('student', function($q) use ($schoolId) {
+            $q->where('school_id', $schoolId);
+        });
+    }
+
+    /**
+     * Boot method to handle model events
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Update status when saving
+        static::saving(function ($invoice) {
+            // Automatically update status based on payments
+            if ($invoice->amountpaid >= $invoice->total_amount) {
+                $invoice->status = 'paid';
+            } elseif ($invoice->amountpaid > 0) {
+                $invoice->status = 'partial';
+            } else {
+                $invoice->status = 'unpaid';
+            }
+
+            // Set courseName from relationship if empty
+            if (empty($invoice->courseName) && $invoice->course) {
+                $invoice->courseName = $invoice->course->name;
+            }
+        });
     }
 }

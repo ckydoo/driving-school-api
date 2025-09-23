@@ -101,10 +101,17 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::resource('fleet', AdminFleetController::class);
 
     // === INVOICE MANAGEMENT === (FIXED - Remove Duplicates)
-    Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.downloadPdf');
-    Route::post('invoices/{invoice}/send', [AdminInvoiceController::class, 'sendInvoice'])->name('invoices.send');
-    Route::post('invoices/{invoice}/mark-paid', [AdminInvoiceController::class, 'markAsPaid'])->name('invoices.markAsPaid');
     Route::resource('invoices', AdminInvoiceController::class);
+    
+    // Add the export route
+    Route::get('invoices/export', [AdminInvoiceController::class, 'export'])
+         ->name('invoices.export');
+    
+    Route::post('invoices/{invoice}/mark-as-paid', [AdminInvoiceController::class, 'markAsPaid'])
+         ->name('invoices.markAsPaid');
+    
+    Route::get('invoices/{invoice}/download-pdf', [AdminInvoiceController::class, 'downloadPdf'])
+         ->name('invoices.downloadPdf');
 
     // === PAYMENT MANAGEMENT ===
     Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verify'])->name('payments.verify');
