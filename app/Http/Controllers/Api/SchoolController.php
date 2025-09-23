@@ -1,290 +1,278 @@
 <?php
-// app/Http/Controllers/Api/SchoolController.php
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\User;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\FacadesLog;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Api\BaseController;
-use App\Models\School; // You'll need to create this model
+use App\Models\School;
+use App\Models\User;
 
 class SchoolController extends BaseController
 {
     /**
-     * Register a new school with admin user
+     * Authenticate user for a specific school
+     * POST /api/schools/authenticate
      */
-    public function register(Request $request)
+    public function authenticateUser(Request $request): JsonResponse
     {
         try {
-            Log::info('School registration attempt', $request->all());
-
-            // Validate school and admin data
+            // Validate request
             $validator = Validator::make($request->all(), [
-                // School validation
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|max:255|unique:schools,email',
-                'phone' => 'required|string|max:20',
-                'address' => 'required|string|max:500',
-                'city' => 'required|string|max:100',
-                'country' => 'required|string|max:100',
-                'website' => 'nullable|url|max:255',
-                'start_time' => 'required|string',
-                'end_time' => 'required|string',
-                'operating_days' => 'required|array',
-
-                // Admin user validation
-                'admin_first_name' => 'required|string|max:255',
-                'admin_last_name' => 'required|string|max:255',
-                'admin_email' => 'required|email|max:255|unique:users,email',
-                'admin_password' => 'required|string|min:8',
-                'admin_password_confirmation' => 'required|same:admin_password',
-                'admin_phone' => 'required|string|max:20',
+                'school_identifier' => 'required|string',
+                'email' => 'required|email',
+                'password' => 'required|string|min:6',
             ]);
 
             if ($validator->fails()) {
-                Log::error('School registration validation failed', $validator->errors()->toArray());
-                return $this->sendError('Validation Error.', $validator->errors(), 422);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
-            // Start database transaction
-            DB::beginTransaction();
+            $schoolIdentifier = $request->input('school_identifier');
+            $email = $request->input('email');
+            $password = $request->input('password');
 
-            try {
-                // Create school
-                $school = School::create([
-                    'name' => $request->name,
-                    'slug' => Str::slug($request->name),
-                    'email' => $request->email,
-                    'phone' => $request->phone,
-                    'address' => $request->address,
-                    'city' => $request->city,
-                    'country' => $request->country,
-                    'website' => $request->website,
-                    'start_time' => $request->start_time,
-                    'end_time' => $request->end_time,
-                    'operating_days' => json_encode($request->operating_days),
-                    'invitation_code' => $this->generateInvitationCode($request->name),
-                    'status' => 'active',
-                ]);
+            // Find school by name or code
+            $school = School::where('name', $schoolIdentifier)
+                          ->orWhere('invitation_code', $schoolIdentifier)
+                          ->orWhere('slug', $schoolIdentifier)
+                          ->first();
 
-                Log::info('School created successfully', ['school_id' => $school->id]);
+            if (!$school) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'School not found'
+                ], 404);
+            }
 
-                // Create admin user
-                $admin = User::create([
-                    'fname' => $request->admin_first_name,
-                    'lname' => $request->admin_last_name,
-                    'email' => $request->admin_email,
-                    'password' => Hash::make($request->admin_password),
-                    'role' => 'admin',
-                    'phone' => $request->admin_phone,
-                    'status' => 'active',
-                    'date_of_birth' => now()->subYears(25)->format('Y-m-d'), // Default age
-                    'gender' => 'other', // Default
-                    'school_id' => $school->id, // Link to school if you have this field
-                ]);
+            // Find user in this school
+            $user = User::where('email', $email)
+                       ->where('school_id', $school->id)
+                       ->first();
 
-                Log::info('Admin user created successfully', ['user_id' => $admin->id]);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found in this school'
+                ], 404);
+            }
 
-                // Create API token for the admin
-                $token = $admin->createToken('school-registration')->plainTextToken;
+            // Verify password
+            if (!Hash::check($password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials'
+                ], 401);
+            }
 
-                // Commit transaction
-                DB::commit();
+            // Check if user is active
+            if ($user->status !== 'active') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User account is not active'
+                ], 403);
+            }
 
-                $response = [
+            // Create API token
+            $token = $user->createToken('school-auth')->plainTextToken;
+
+            // Calculate trial days remaining (if applicable)
+            $trialDaysRemaining = null;
+            if ($school->trial_expires_at && $school->trial_expires_at->isFuture()) {
+                $trialDaysRemaining = now()->diffInDays($school->trial_expires_at);
+            }
+
+            // Prepare response data
+            $responseData = [
+                'user' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'fname' => $user->fname,
+                    'lname' => $user->lname,
+                    'role' => $user->role,
+                    'phone' => $user->phone,
+                    'status' => $user->status,
+                ],
+                'school' => [
+                    'id' => $school->id,
+                    'name' => $school->name,
+                    'invitation_code' => $school->invitation_code,
+                    'address' => $school->address,
+                    'phone' => $school->phone,
+                    'email' => $school->email,
+                    'status' => $school->status,
+                ],
+                'token' => $token,
+                'trial_days_remaining' => $trialDaysRemaining,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Authentication successful',
+                'data' => $responseData
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('School authentication error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication failed',
+                'error' => app()->environment('local') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Find school by name or code
+     * POST /api/schools/find
+     */
+    public function find(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'identifier' => 'required|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $identifier = $request->input('identifier');
+
+            $school = School::where('name', 'like', "%{$identifier}%")
+                          ->orWhere('invitation_code', $identifier)
+                          ->orWhere('slug', $identifier)
+                          ->first();
+
+            if (!$school) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'School not found'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $school->id,
+                    'name' => $school->name,
+                    'invitation_code' => $school->invitation_code,
+                    'address' => $school->address,
+                    'phone' => $school->phone,
+                    'email' => $school->email,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('School find error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => app()->environment('local') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Register a new school
+     * POST /api/schools/register
+     */
+    public function register(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255|unique:schools,name',
+                'email' => 'required|email|unique:schools,email',
+                'phone' => 'required|string',
+                'address' => 'required|string',
+                'admin_fname' => 'required|string',
+                'admin_lname' => 'required|string',
+                'admin_email' => 'required|email|unique:users,email',
+                'admin_password' => 'required|string|min:8',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Create school
+            $school = School::create([
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
+                'phone' => $request->input('phone'),
+                'address' => $request->input('address'),
+                'invitation_code' => $this->generateSchoolinvitation_code($request->input('name')),
+                'status' => 'active',
+                'trial_expires_at' => now()->addDays(30), // 30-day trial
+            ]);
+
+            // Create admin user for the school
+            $adminUser = User::create([
+                'school_id' => $school->id,
+                'fname' => $request->input('admin_fname'),
+                'lname' => $request->input('admin_lname'),
+                'email' => $request->input('admin_email'),
+                'password' => Hash::make($request->input('admin_password')),
+                'role' => 'admin',
+                'status' => 'active',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'School registered successfully',
+                'data' => [
                     'school' => [
                         'id' => $school->id,
                         'name' => $school->name,
-                        'email' => $school->email,
-                        'phone' => $school->phone,
-                        'address' => $school->address,
-                        'city' => $school->city,
-                        'country' => $school->country,
-                        'website' => $school->website,
-                        'start_time' => $school->start_time,
-                        'end_time' => $school->end_time,
-                        'operating_days' => json_decode($school->operating_days),
                         'invitation_code' => $school->invitation_code,
-                        'status' => $school->status,
                     ],
-                    'admin' => [
-                        'id' => $admin->id,
-                        'fname' => $admin->fname,
-                        'lname' => $admin->lname,
-                        'email' => $admin->email,
-                        'role' => $admin->role,
-                        'phone' => $admin->phone,
-                        'status' => $admin->status,
-                    ],
-                    'token' => $token,
-                    'trial_days_remaining' => 30, // Default trial period
-                ];
-
-                Log::info('School registration completed successfully', ['school_id' => $school->id, 'admin_id' => $admin->id]);
-
-                return $this->sendResponse($response, 'School registered successfully.');
-
-            } catch (\Exception $e) {
-                // Rollback transaction
-                DB::rollback();
-                Log::error('Database transaction failed during school registration', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                throw $e;
-            }
+                    'admin_user' => [
+                        'id' => $adminUser->id,
+                        'email' => $adminUser->email,
+                        'name' => $adminUser->fname . ' ' . $adminUser->lname,
+                    ]
+                ]
+            ], 201);
 
         } catch (\Exception $e) {
-            Log::error('School registration failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
-            ]);
-
-            return $this->sendError('School registration failed: ' . $e->getMessage(), [], 500);
+            \Log::error('School registration error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed',
+                'error' => app()->environment('local') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
     }
 
     /**
-     * Find school by name or invitation code
+     * Generate a unique school code
      */
-    public function find(Request $request)
+    private function generateSchoolCode(string $schoolName): string
     {
-        $validator = Validator::make($request->all(), [
-            'identifier' => 'required|string',
-        ]);
+        // Create base code from school name
+        $baseCode = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $schoolName), 0, 6));
+        
+        // Add random numbers to ensure uniqueness
+        do {
+            $code = $baseCode . rand(100, 999);
+        } while (School::where('invitation_code', $invitation_code)->exists());
 
-        if ($validator->fails()) {
-            return $this->sendError('Validation Error.', $validator->errors(), 422);
-        }
-
-        $identifier = $request->identifier;
-
-        // Search by name first (case insensitive)
-        $school = School::where('name', 'ILIKE', "%{$identifier}%")
-                       ->where('status', 'active')
-                       ->first();
-
-        // If not found by name, search by invitation code
-        if (!$school) {
-            $school = School::where('invitation_code', strtoupper($identifier))
-                           ->where('status', 'active')
-                           ->first();
-        }
-
-        if (!$school) {
-            return $this->sendError('School not found.', [], 404);
-        }
-
-        $response = [
-            'id' => $school->id,
-            'name' => $school->name,
-            'email' => $school->email,
-            'phone' => $school->phone,
-            'address' => $school->address,
-            'city' => $school->city,
-            'country' => $school->country,
-            'website' => $school->website,
-            'invitation_code' => $school->invitation_code,
-            'status' => $school->status,
-        ];
-
-        return $this->sendResponse($response, 'School found.');
-    }
-
-    /**
-     * Authenticate user for specific school
-     */
-    public function authenticate(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'school_identifier' => 'required|string',
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->sendError('Validation Error.', $validator->errors(), 422);
-        }
-
-        // Find school first
-        $school = School::where('name', 'ILIKE', "%{$request->school_identifier}%")
-                       ->orWhere('invitation_code', strtoupper($request->school_identifier))
-                       ->where('status', 'active')
-                       ->first();
-
-        if (!$school) {
-            return $this->sendError('School not found.', [], 404);
-        }
-
-        // Find user in that school
-        $user = User::where('email', $request->email)
-                   ->where('status', 'active')
-                   ->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return $this->sendError('Invalid credentials.', [], 401);
-        }
-
-        // Create token
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        $response = [
-            'school' => [
-                'id' => $school->id,
-                'name' => $school->name,
-                'email' => $school->email,
-                'phone' => $school->phone,
-                'address' => $school->address,
-                'city' => $school->city,
-                'country' => $school->country,
-                'invitation_code' => $school->invitation_code,
-            ],
-            'user' => [
-                'id' => $user->id,
-                'fname' => $user->fname,
-                'lname' => $user->lname,
-                'email' => $user->email,
-                'role' => $user->role,
-                'phone' => $user->phone,
-            ],
-            'token' => $token,
-            'trial_days_remaining' => 30,
-        ];
-
-        return $this->sendResponse($response, 'Authentication successful.');
-    }
-
-    /**
-     * Generate unique invitation code
-     */
-    private function generateInvitationCode($schoolName)
-    {
-        // Get first 3 letters of each word in school name
-        $words = explode(' ', strtoupper($schoolName));
-        $prefix = '';
-
-        foreach (array_slice($words, 0, 2) as $word) {
-            $prefix .= substr($word, 0, 3);
-        }
-
-        // Add random number
-        $suffix = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-
-        $code = $prefix . $suffix;
-
-        // Ensure uniqueness
-        while (School::where('invitation_code', $code)->exists()) {
-            $suffix = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-            $code = $prefix . $suffix;
-        }
-
-        return $code;
+        return $invitation_code;
     }
 }
