@@ -247,7 +247,17 @@
                                             id="role" 
                                             name="role"
                                             required>
-                                        @foreach($availableRoles as $roleValue => $roleLabel)
+                                        <option value="">Select Role</option>
+                                        @foreach($availableRoles as $roleValue)
+                                            @php
+                                                $roleLabel = match($roleValue) {
+                                                    'super_admin' => 'Super Administrator',
+                                                    'admin' => 'School Administrator',
+                                                    'instructor' => 'Instructor',
+                                                    'student' => 'Student',
+                                                    default => ucfirst($roleValue)
+                                                };
+                                            @endphp
                                             <option value="{{ $roleValue }}" 
                                                 {{ old('role', $user->role) === $roleValue ? 'selected' : '' }}>
                                                 {{ $roleLabel }}
@@ -262,26 +272,44 @@
                                     </small>
                                 </div>
                             </div>
+                            
+                            <!-- School Dropdown - FIXED -->
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="school_id" class="form-label">
-                                        School <span class="text-danger">*</span>
+                                        @if($currentUser->isSuperAdmin())
+                                            School
+                                        @else
+                                            School <span class="text-danger">*</span>
+                                        @endif
                                     </label>
-                                    <select class="form-control @error('school_id') is-invalid @enderror" 
-                                            id="school_id" 
-                                            name="school_id"
-                                            required>
-                                        <option value="">Select School</option>
-                                        @foreach($schools as $school)
-                                            <option value="{{ $school->id }}" 
-                                                {{ old('school_id', $user->school_id) == $school->id ? 'selected' : '' }}>
-                                                {{ $school->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('school_id')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
+                                    @if($currentUser->isSuperAdmin())
+                                        <select class="form-control @error('school_id') is-invalid @enderror" 
+                                                id="school_id" 
+                                                name="school_id">
+                                            <option value="">Select School (Optional)</option>
+                                            @foreach($schools as $school)
+                                                <option value="{{ $school->id }}" 
+                                                    {{ old('school_id', $user->school_id) == $school->id ? 'selected' : '' }}>
+                                                    {{ $school->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('school_id')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                        <small class="form-text text-muted">
+                                            Leave empty for system administrators
+                                        </small>
+                                    @else
+                                        <!-- For school admins, show the school name but don't include it in form -->
+                                        <input type="text" class="form-control" 
+                                               value="{{ $user->school->name ?? $currentUser->school->name ?? 'No School Assigned' }}" 
+                                               readonly>
+                                        <small class="form-text text-muted">
+                                            School assignment is managed automatically for school administrators
+                                        </small>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -306,26 +334,6 @@
                             </div>
                         </div>
                         @endif
-
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="form-group">
-                                    <label for="courseIds" class="form-label">Course Enrollments</label>
-                                    <input type="text" 
-                                           class="form-control @error('courseIds') is-invalid @enderror" 
-                                           id="courseIds" 
-                                           name="courseIds" 
-                                           value="{{ old('courseIds', is_array($user->courseIds) ? implode(',', $user->courseIds) : $user->courseIds) }}"
-                                           placeholder="1,2,3 (comma-separated course IDs)">
-                                    @error('courseIds')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    <small class="form-text text-muted">
-                                        Enter course IDs separated by commas. Leave empty if no courses assigned.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 

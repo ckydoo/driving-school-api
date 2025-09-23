@@ -80,7 +80,8 @@ class AdminUserController extends Controller
     {
         $currentUser = Auth::user();
 
-        $validator = Validator::make($request->all(), [
+        // FIXED: Separate validation rules for different user types
+        $rules = [
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -92,21 +93,39 @@ class AdminUserController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
             'idnumber' => 'nullable|string|unique:users,idnumber',
-            'school_id' => $this->getSchoolValidationRule($currentUser),
-        ]);
+        ];
+
+        // FIXED: School validation based on user role
+        if ($currentUser->isSuperAdmin()) {
+            $rules['school_id'] = 'nullable|exists:schools,id';
+        } else {
+            // For school admins, don't validate school_id because we'll set it automatically
+            // $rules['school_id'] = 'required|exists:schools,id|in:' . $currentUser->school_id;
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
+            \Log::error('User creation validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'input' => $request->except(['password', 'password_confirmation']),
+                'available_roles' => $this->getAvailableRoles($currentUser),
+                'current_user_role' => $currentUser->role,
+            ]);
             return back()->withErrors($validator)->withInput();
         }
 
         $userData = $request->all();
         $userData['password'] = Hash::make($request->password);
 
-        // Set school_id based on user permissions
+        // FIXED: Set school_id based on user permissions
         if ($currentUser->isSchoolAdmin()) {
             $userData['school_id'] = $currentUser->school_id;
-        } elseif (!$currentUser->isSuperAdmin() || $request->role === 'super_admin') {
-            $userData['school_id'] = null;
+        } elseif ($currentUser->isSuperAdmin()) {
+            // Super admin can optionally set school_id, or leave null for super_admin role
+            if ($request->role === 'super_admin') {
+                $userData['school_id'] = null;
+            }
         }
 
         User::create($userData);
@@ -157,13 +176,14 @@ class AdminUserController extends Controller
     public function update(Request $request, User $user)
     {
         $currentUser = Auth::user();
-
+    
         // Check if user can edit this user
         if (!$this->canAccessUser($currentUser, $user)) {
             abort(403, 'Access denied.');
         }
-
-        $validator = Validator::make($request->all(), [
+    
+        // FIXED: Same validation rules as store method
+        $rules = [
             'fname' => 'required|string|max:255',
             'lname' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
@@ -175,26 +195,45 @@ class AdminUserController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
             'idnumber' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
-            'school_id' => $this->getSchoolValidationRule($currentUser),
-        ]);
-
+        ];
+    
+        // FIXED: School validation based on user role
+        if ($currentUser->isSuperAdmin()) {
+            $rules['school_id'] = 'nullable|exists:schools,id';
+        }
+        // For school admins, don't validate school_id because we'll set it automatically
+    
+        $validator = Validator::make($request->all(), $rules);
+    
         if ($validator->fails()) {
+            \Log::error('User update validation failed', [
+                'user_id' => $user->id,
+                'errors' => $validator->errors()->toArray(),
+                'input' => $request->except(['password', 'password_confirmation']),
+                'available_roles' => $this->getAvailableRoles($currentUser),
+                'current_user_role' => $currentUser->role,
+            ]);
             return back()->withErrors($validator)->withInput();
         }
-
+    
         $userData = $request->except(['password', 'password_confirmation']);
-
+    
         if ($request->filled('password')) {
             $userData['password'] = Hash::make($request->password);
         }
-
-        // Restrict school changes for school admins
+    
+        // FIXED: Restrict school changes for school admins
         if ($currentUser->isSchoolAdmin()) {
             $userData['school_id'] = $currentUser->school_id;
+        } elseif ($currentUser->isSuperAdmin()) {
+            // Super admin can set school_id, or leave null for super_admin role
+            if ($request->role === 'super_admin') {
+                $userData['school_id'] = null;
+            }
         }
-
+    
         $user->update($userData);
-
+    
         return redirect()->route('admin.users.show', $user)
             ->with('success', 'User updated successfully!');
     }
@@ -268,13 +307,15 @@ class AdminUserController extends Controller
         return ['student']; // Fallback
     }
 
+    // FIXED: Simplified school validation
     private function getSchoolValidationRule($currentUser): string
     {
         if ($currentUser->isSuperAdmin()) {
             return 'nullable|exists:schools,id';
         }
 
-        return 'required|exists:schools,id|in:' . $currentUser->school_id;
+        // For school admins, we don't need to validate this since we set it automatically
+        return 'nullable';
     }
 
     public function allUsers(Request $request)

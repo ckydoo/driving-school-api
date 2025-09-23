@@ -144,11 +144,11 @@
                                                 default => 'secondary'
                                             };
                                         @endphp
-                                        <span class="badge badge-{{ $roleClass }} badge-lg">
+                                        <span class="badge badge-{{ $roleClass }} badge-lg text-dark">
                                             {{ ucfirst(str_replace('_', ' ', $user->role)) }}
                                         </span>
                                         @if($user->is_super_admin)
-                                            <span class="badge badge-danger badge-sm ml-1">
+                                            <span class="badge badge-danger badge-sm ml-1 text-dark">
                                                 <i class="fas fa-crown"></i> Super Admin
                                             </span>
                                         @endif
@@ -157,7 +157,7 @@
                                 <tr>
                                     <td><strong>Status:</strong></td>
                                     <td>
-                                        <span class="badge badge-{{ ($user->status ?? 'active') === 'active' ? 'success' : 'secondary' }} badge-lg">
+                                        <span class="badge badge-{{ ($user->status ?? 'active') === 'active' ? 'success' : 'secondary' }} badge-lg text-dark">
                                             {{ ucfirst($user->status ?? 'Active') }}
                                         </span>
                                     </td>
@@ -188,18 +188,6 @@
                                     <small class="text-muted">{{ $user->school->email }}</small>
                                 @else
                                     <span class="text-muted">No school assigned</span>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <strong>Courses:</strong><br>
-                                @if($user->courseIds && count($user->courseIds) > 0)
-                                    @foreach($user->courseIds as $courseId)
-                                        <span class="badge badge-info mr-1">Course {{ $courseId }}</span>
-                                    @endforeach
-                                @else
-                                    <span class="text-muted">No courses assigned</span>
                                 @endif
                             </div>
                         </div>

@@ -1,5 +1,4 @@
-{{-- resources/views/admin/users/create.blade.php --}}
-
+{{-- resources/views/admin/users/create.blade.php - FIXED --}}
 @extends('admin.layouts.app')
 
 @section('title', 'Create User')
@@ -8,26 +7,54 @@
 <div class="container-fluid">
     <!-- Page Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <div>
-            <h1 class="h3 mb-0 text-gray-800">Create New User</h1>
-            <p class="mb-0 text-muted">Add a new user to the system</p>
-        </div>
-        <a href="{{ route('admin.users.index') }}" class="btn btn-secondary btn-sm">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-user-plus"></i> Create New User
+        </h1>
+        <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Users
         </a>
     </div>
 
+    <!-- Success/Error Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-triangle"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    <!-- Error Display -->
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Please correct the following errors:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    <!-- Create User Form -->
     <div class="row">
         <div class="col-lg-8">
-            <!-- User Form Card -->
-            <div class="card shadow mb-4">
+            <div class="card shadow">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-user-plus"></i> User Information
                     </h6>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('admin.users.store') }}" method="POST" id="userForm">
+                    <form method="POST" action="{{ route('admin.users.store') }}" id="createUserForm">
                         @csrf
 
                         <div class="row">
@@ -55,7 +82,7 @@
                         <div class="row">
                             <!-- Email -->
                             <div class="col-md-6 mb-3">
-                                <label for="email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control @error('email') is-invalid @enderror"
                                        id="email" name="email" value="{{ old('email') }}" required>
                                 @error('email')
@@ -65,7 +92,7 @@
 
                             <!-- Phone -->
                             <div class="col-md-6 mb-3">
-                                <label for="phone" class="form-label">Phone Number</label>
+                                <label for="phone" class="form-label">Phone</label>
                                 <input type="tel" class="form-control @error('phone') is-invalid @enderror"
                                        id="phone" name="phone" value="{{ old('phone') }}">
                                 @error('phone')
@@ -78,17 +105,11 @@
                             <!-- Password -->
                             <div class="col-md-6 mb-3">
                                 <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <input type="password" class="form-control @error('password') is-invalid @enderror"
-                                           id="password" name="password" required>
-                                    <button type="button" class="btn btn-outline-secondary" id="togglePassword">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
+                                <input type="password" class="form-control @error('password') is-invalid @enderror"
+                                       id="password" name="password" required>
                                 @error('password')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-                                <small class="text-muted">Minimum 8 characters</small>
                             </div>
 
                             <!-- Confirm Password -->
@@ -117,6 +138,7 @@
                                     <option value="">Select Gender</option>
                                     <option value="male" {{ old('gender') === 'male' ? 'selected' : '' }}>Male</option>
                                     <option value="female" {{ old('gender') === 'female' ? 'selected' : '' }}>Female</option>
+                                    <option value="other" {{ old('gender') === 'other' ? 'selected' : '' }}>Other</option>
                                 </select>
                                 @error('gender')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -125,14 +147,25 @@
                         </div>
 
                         <div class="row">
-                            <!-- Role -->
+                            <!-- Role - FIXED: Use dynamic availableRoles -->
                             <div class="col-md-6 mb-3">
                                 <label for="role" class="form-label">Role <span class="text-danger">*</span></label>
                                 <select class="form-select @error('role') is-invalid @enderror" id="role" name="role" required>
                                     <option value="">Select Role</option>
-                                    <option value="student" {{ old('role') === 'student' ? 'selected' : '' }}>Student</option>
-                                    <option value="instructor" {{ old('role') === 'instructor' ? 'selected' : '' }}>Instructor</option>
-                                    <option value="admin" {{ old('role') === 'admin' ? 'selected' : '' }}>Admin</option>
+                                    @foreach($availableRoles as $roleValue)
+                                        @php
+                                            $roleLabel = match($roleValue) {
+                                                'super_admin' => 'Super Administrator',
+                                                'admin' => 'School Administrator',
+                                                'instructor' => 'Instructor',
+                                                'student' => 'Student',
+                                                default => ucfirst($roleValue)
+                                            };
+                                        @endphp
+                                        <option value="{{ $roleValue }}" {{ old('role') === $roleValue ? 'selected' : '' }}>
+                                            {{ $roleLabel }}
+                                        </option>
+                                    @endforeach
                                 </select>
                                 @error('role')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -143,7 +176,7 @@
                             <div class="col-md-6 mb-3">
                                 <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
                                 <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
-                                    <option value="active" {{ old('status') === 'active' ? 'selected' : '' }}>Active</option>
+                                    <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
                                     <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
                                     <option value="suspended" {{ old('status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
                                 </select>
@@ -153,8 +186,9 @@
                             </div>
                         </div>
 
+                        <!-- FIXED: School field - only show for super admins -->
+                        @if($currentUser->isSuperAdmin())
                         <div class="row">
-                            <!-- School -->
                             <div class="col-md-6 mb-3">
                                 <label for="school_id" class="form-label">School</label>
                                 <select class="form-select @error('school_id') is-invalid @enderror" id="school_id" name="school_id">
@@ -168,6 +202,34 @@
                                 @error('school_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
+                                <small class="form-text text-muted">
+                                    Leave empty for system administrators
+                                </small>
+                            </div>
+                        </div>
+                        @else
+                        <!-- For school admins, show the school name but don't include it in form -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">School</label>
+                                <input type="text" class="form-control" value="{{ $currentUser->school->name ?? 'No School Assigned' }}" readonly>
+                                <small class="form-text text-muted">
+                                    User will be assigned to your school automatically
+                                </small>
+                            </div>
+                        </div>
+                        @endif
+
+                        <!-- Optional Fields -->
+                        <div class="row">
+                            <!-- Address -->
+                            <div class="col-md-6 mb-3">
+                                <label for="address" class="form-label">Address</label>
+                                <textarea class="form-control @error('address') is-invalid @enderror"
+                                          id="address" name="address" rows="3">{{ old('address') }}</textarea>
+                                @error('address')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
 
                             <!-- ID Number -->
@@ -178,146 +240,84 @@
                                 @error('idnumber')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-                                <small class="text-muted">National ID, Passport, or Driver's License</small>
                             </div>
                         </div>
 
-                        <!-- Address -->
-                        <div class="mb-3">
-                            <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control @error('address') is-invalid @enderror"
-                                      id="address" name="address" rows="3">{{ old('address') }}</textarea>
-                            @error('address')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ route('admin.users.index') }}" class="btn btn-secondary me-md-2">
-                                <i class="fas fa-times"></i> Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Create User
-                            </button>
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Create User
+                                </button>
+                                <button type="reset" class="btn btn-secondary">
+                                    <i class="fas fa-undo"></i> Reset Form
+                                </button>
+                            </div>
+                            <div>
+                                <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Cancel
+                                </a>
+                            </div>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- Help Card -->
+        <!-- Help Sidebar -->
         <div class="col-lg-4">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-question-circle"></i> Help
+                    <h6 class="m-0 font-weight-bold text-info">
+                        <i class="fas fa-info-circle"></i> User Roles
                     </h6>
                 </div>
                 <div class="card-body">
-                    <h6>User Roles:</h6>
-                    <ul class="list-unstyled">
-                        <li><span class="badge bg-success">Student</span> - Can view schedules, make payments</li>
-                        <li><span class="badge bg-info">Instructor</span> - Can manage students, schedules</li>
-                        <li><span class="badge bg-danger">Admin</span> - Full system access</li>
-                    </ul>
-
-                    <hr>
-
-                    <h6>Status Options:</h6>
-                    <ul class="list-unstyled">
-                        <li><span class="badge bg-success">Active</span> - Can login and use system</li>
-                        <li><span class="badge bg-secondary">Inactive</span> - Account disabled</li>
-                        <li><span class="badge bg-danger">Suspended</span> - Temporarily blocked</li>
-                    </ul>
-
-                    <hr>
-
-                    <h6>Password Requirements:</h6>
-                    <ul class="text-sm">
-                        <li>Minimum 8 characters</li>
-                        <li>Mix of letters and numbers recommended</li>
-                        <li>User can change password after first login</li>
-                    </ul>
+                    <div class="mb-3">
+                        <h6 class="text-primary">Available Roles:</h6>
+                        @foreach($availableRoles as $role)
+                            @php
+                                $descriptions = [
+                                    'super_admin' => 'Full system access, can manage all schools',
+                                    'admin' => 'School administrator, manages school users and settings',
+                                    'instructor' => 'Can teach lessons and manage schedules',
+                                    'student' => 'Can book lessons and view schedules',
+                                ];
+                            @endphp
+                            <div class="mb-2">
+                                <strong>{{ match($role) {
+                                    'super_admin' => 'Super Administrator',
+                                    'admin' => 'School Administrator',
+                                    'instructor' => 'Instructor',
+                                    'student' => 'Student',
+                                    default => ucfirst($role)
+                                } }}</strong>
+                                <br>
+                                <small class="text-muted">{{ $descriptions[$role] ?? 'User role' }}</small>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
+            <!-- School Info -->
+            @if(!$currentUser->isSuperAdmin())
             <div class="card shadow">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-bolt"></i> Quick Actions
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-school"></i> School Information
                     </h6>
                 </div>
                 <div class="card-body">
-                    <a href="{{ route('admin.schools.create') }}" class="btn btn-outline-primary btn-sm btn-block mb-2">
-                        <i class="fas fa-school"></i> Add New School
-                    </a>
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary btn-sm btn-block mb-2">
-                        <i class="fas fa-users"></i> View All Users
-                    </a>
-                    <button type="button" class="btn btn-outline-info btn-sm btn-block" onclick="generatePassword()">
-                        <i class="fas fa-key"></i> Generate Password
-                    </button>
+                    <p><strong>School:</strong> {{ $currentUser->school->name ?? 'No School' }}</p>
+                    <p><strong>Your Role:</strong> {{ $currentUser->role_display }}</p>
+                    <small class="text-muted">
+                        All users you create will be assigned to your school automatically.
+                    </small>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </div>
-
-@push('scripts')
-<script>
-$(document).ready(function() {
-    // Toggle password visibility
-    $('#togglePassword').click(function() {
-        const passwordField = $('#password');
-        const icon = $(this).find('i');
-
-        if (passwordField.attr('type') === 'password') {
-            passwordField.attr('type', 'text');
-            icon.removeClass('fa-eye').addClass('fa-eye-slash');
-        } else {
-            passwordField.attr('type', 'password');
-            icon.removeClass('fa-eye-slash').addClass('fa-eye');
-        }
-    });
-
-    // Form validation
-    $('#userForm').submit(function(e) {
-        const password = $('#password').val();
-        const confirmPassword = $('#password_confirmation').val();
-
-        if (password !== confirmPassword) {
-            e.preventDefault();
-            alert('Passwords do not match!');
-            return false;
-        }
-
-        if (password.length < 8) {
-            e.preventDefault();
-            alert('Password must be at least 8 characters long!');
-            return false;
-        }
-    });
-});
-
-function generatePassword() {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let password = "";
-
-    for (let i = 0, n = charset.length; i < length; ++i) {
-        password += charset.charAt(Math.floor(Math.random() * n));
-    }
-
-    $('#password').val(password);
-    $('#password_confirmation').val(password);
-
-    // Show password temporarily
-    $('#password').attr('type', 'text');
-    $('#togglePassword i').removeClass('fa-eye').addClass('fa-eye-slash');
-
-    alert('Generated password: ' + password + '\nPlease copy this password and share it securely with the user.');
-}
-</script>
-@endpush
 @endsection

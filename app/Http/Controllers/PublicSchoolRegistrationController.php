@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/SchoolRegistrationController.php
+// app/Http/Controllers/PublicSchoolRegistrationController.php
 
 namespace App\Http\Controllers;
 
@@ -8,10 +8,11 @@ use App\Models\School;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
-class SchoolRegistrationController extends Controller
+class PublicSchoolRegistrationController extends Controller  // FIXED: Changed class name
 {
     /**
      * Show the registration form
@@ -26,6 +27,8 @@ class SchoolRegistrationController extends Controller
      */
     public function register(Request $request)
     {
+        Log::info('Public school registration attempt', $request->except(['admin_password', 'admin_password_confirmation']));
+
         // Validate the form data
         $validator = Validator::make($request->all(), [
             'school_name' => 'required|string|max:255',
@@ -35,10 +38,15 @@ class SchoolRegistrationController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('School registration validation failed', [
+                'errors' => $validator->errors()->toArray(),
+                'input' => $request->except(['admin_password', 'admin_password_confirmation'])
+            ]);
+
             return back()
                 ->withErrors($validator)
                 ->withInput()
-                ->with('error', 'Please fix the validation errors below.');
+                ->with('error', 'Please fix the validation errors: ' . $validator->errors()->first());
         }
 
         DB::beginTransaction();
@@ -46,6 +54,8 @@ class SchoolRegistrationController extends Controller
         try {
             // Generate unique invitation code
             $invitationCode = $this->generateInvitationCode();
+            
+            Log::info('Generated invitation code', ['code' => $invitationCode]);
 
             // Create the school
             $school = School::create([
@@ -65,6 +75,8 @@ class SchoolRegistrationController extends Controller
                 'max_instructors' => 10,
             ]);
 
+            Log::info('School created successfully', ['school_id' => $school->id]);
+
             // Create the admin user
             $admin = User::create([
                 'fname' => 'Admin', // Default - can be updated later
@@ -78,28 +90,41 @@ class SchoolRegistrationController extends Controller
                 'date_of_birth' => now()->subYears(30), // Default
             ]);
 
+            Log::info('Admin user created successfully', ['admin_id' => $admin->id]);
+
             DB::commit();
 
             // Auto-login the newly created admin
             auth()->login($admin);
 
+            Log::info('School registration completed successfully', [
+                'school_id' => $school->id, 
+                'admin_id' => $admin->id
+            ]);
+
             return redirect()->route('admin.dashboard')->with('success',
-                "Welcome to " . config('app.name') . "! Your driving school '{$school->name}' has been registered successfully. You have a 30-day free trial."
+                "Welcome to your new driving school! You have a 30-day free trial."
             );
 
         } catch (\Exception $e) {
             DB::rollback();
+            
+            Log::error('School registration failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'input' => $request->except(['admin_password', 'admin_password_confirmation'])
+            ]);
 
             return back()
                 ->withInput()
-                ->with('error', 'Registration failed. Please try again. If the problem persists, contact support.');
+                ->with('error', 'Registration failed: ' . $e->getMessage() . '. Please try again.');
         }
     }
 
     /**
-     * Generate a unique invitation code
+     * Generate unique invitation code
      */
-    private function generateInvitationCode(): string
+    private function generateInvitationCode()
     {
         do {
             $code = strtoupper(Str::random(6));
