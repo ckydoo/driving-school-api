@@ -13,6 +13,7 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
+        'school_id',       // ✅ CRITICAL FIX: Add school_id to fillable
         'invoice_number',
         'student',         // Foreign key to users table
         'course',          // Foreign key to courses table
@@ -28,6 +29,11 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'school_id' => 'integer',           // ✅ Add cast for school_id
+        'student' => 'integer',             // ✅ Add cast for foreign keys
+        'course' => 'integer',
+        'lessons' => 'integer',
+        'used_lessons' => 'integer',
         'price_per_lesson' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'amountpaid' => 'decimal:2',
@@ -35,6 +41,14 @@ class Invoice extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Relationship to School
+     */
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
+    }
 
     /**
      * Relationship to Student (User model)
@@ -74,93 +88,30 @@ class Invoice extends Model
         return $this->hasMany(Payment::class, 'invoiceId', 'id');
     }
 
+    // === SCOPES ===
+
     /**
-     * Calculate remaining balance
+     * Scope to filter by school
      */
-    public function getBalanceAttribute(): float
+    public function scopeForSchool($query, $schoolId)
     {
-        return round($this->total_amount - $this->amountpaid, 2);
+        return $query->where('school_id', $schoolId);
     }
 
     /**
-     * Check if invoice is overdue
+     * Scope for paid invoices
      */
-    public function getIsOverdueAttribute(): bool
+    public function scopePaid($query)
     {
-        if (!$this->due_date || $this->status === 'paid') {
-            return false;
-        }
-
-        return Carbon::now()->isAfter($this->due_date) && $this->balance > 0;
+        return $query->where('status', 'paid');
     }
 
     /**
-     * Get days overdue (0 if not overdue)
+     * Scope for unpaid invoices
      */
-    public function getDaysOverdueAttribute(): int
+    public function scopeUnpaid($query)
     {
-        if (!$this->is_overdue) {
-            return 0;
-        }
-
-        return Carbon::now()->diffInDays($this->due_date);
-    }
-
-    /**
-     * Get status with overdue check
-     */
-    public function getStatusDisplayAttribute(): string
-    {
-        if ($this->status === 'paid') {
-            return 'paid';
-        }
-
-        if ($this->is_overdue) {
-            return 'overdue';
-        }
-
-        return $this->status ?? 'unpaid';
-    }
-
-    /**
-     * Get status badge class for display
-     */
-    public function getStatusBadgeClassAttribute(): string
-    {
-        switch ($this->status_display) {
-            case 'paid':
-                return 'badge-success';
-            case 'overdue':
-                return 'badge-danger';
-            case 'partial':
-                return 'badge-warning';
-            default:
-                return 'badge-secondary';
-        }
-    }
-
-    /**
-     * Update status based on payment amount
-     */
-    public function updateStatusFromPayments(): void
-    {
-        if ($this->amountpaid >= $this->total_amount) {
-            $this->status = 'paid';
-        } elseif ($this->amountpaid > 0) {
-            $this->status = 'partial';
-        } else {
-            $this->status = 'unpaid';
-        }
-
-        $this->save();
-    }
-
-    /**
-     * Scope for filtering by status
-     */
-    public function scopeByStatus($query, $status)
-    {
-        return $query->where('status', $status);
+        return $query->where('status', '!=', 'paid');
     }
 
     /**
@@ -168,56 +119,63 @@ class Invoice extends Model
      */
     public function scopeOverdue($query)
     {
-        return $query->where('due_date', '<', Carbon::now())
-                    ->where('status', '!=', 'paid')
-                    ->where('total_amount', '>', DB::raw('amountpaid'));
+        return $query->where('due_date', '<', now())
+                    ->where('status', '!=', 'paid');
+    }
+
+    // === ACCESSORS & COMPUTED PROPERTIES ===
+
+    /**
+     * Get the remaining balance
+     */
+    public function getBalanceAttribute()
+    {
+        return $this->total_amount - $this->amountpaid;
     }
 
     /**
-     * Scope for pending invoices
+     * Check if invoice is paid
      */
-    public function scopePending($query)
+    public function getIsPaidAttribute()
     {
-        return $query->where('status', 'unpaid')
-                    ->orWhere('status', 'partial');
+        return $this->balance <= 0;
     }
 
     /**
-     * Scope for school filtering
+     * Check if invoice is overdue
      */
-    public function scopeForSchool($query, $schoolId)
+    public function getIsOverdueAttribute()
     {
-        if (!$schoolId) {
-            return $query;
-        }
-
-        return $query->whereHas('student', function($q) use ($schoolId) {
-            $q->where('school_id', $schoolId);
-        });
+        return $this->due_date < now() && !$this->is_paid;
     }
 
     /**
-     * Boot method to handle model events
+     * Get remaining lessons
      */
-    protected static function boot()
+    public function getRemainingLessonsAttribute()
     {
-        parent::boot();
+        return $this->lessons - $this->used_lessons;
+    }
 
-        // Update status when saving
-        static::saving(function ($invoice) {
-            // Automatically update status based on payments
-            if ($invoice->amountpaid >= $invoice->total_amount) {
-                $invoice->status = 'paid';
-            } elseif ($invoice->amountpaid > 0) {
-                $invoice->status = 'partial';
-            } else {
-                $invoice->status = 'unpaid';
-            }
+    /**
+     * Get formatted due date
+     */
+    public function getFormattedDueDateAttribute()
+    {
+        return $this->due_date ? $this->due_date->format('M j, Y') : 'No due date';
+    }
 
-            // Set courseName from relationship if empty
-            if (empty($invoice->courseName) && $invoice->course) {
-                $invoice->courseName = $invoice->course->name;
-            }
-        });
+    /**
+     * Get status badge class for UI
+     */
+    public function getStatusBadgeClassAttribute()
+    {
+        return match($this->status) {
+            'paid' => 'badge-success',
+            'pending' => 'badge-warning',
+            'overdue' => 'badge-danger',
+            'cancelled' => 'badge-secondary',
+            default => 'badge-primary',
+        };
     }
 }

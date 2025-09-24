@@ -165,65 +165,66 @@ class SyncController extends Controller
                         $totalProcessed++;
                         $data = $change['data'] ?? $change;
                         $operation = $change['operation'] ?? 'upsert';
-                        $localId = $data['id'] ?? null;
                         
-                        // Apply ID mappings for foreign keys
+                        // ✅ CRITICAL FIX: Apply school_id to data before processing
+                        if (!isset($data['school_id'])) {
+                            $data['school_id'] = $schoolId;
+                        }
+                        
+                        // Apply ID mappings for foreign key relationships
                         $data = $this->applyIdMappings($data, $type, $idMappings);
                         
-                        // Ensure school_id is set
-                        $data['school_id'] = $schoolId;
+                        $result = null;
                         
-                        // Process the item
-                        $result = $this->processIndividualItem($type, $data, $operation);
+                        switch ($type) {
+                            case 'users':
+                                $result = $this->upsertUser($data, $operation);
+                                break;
+                            case 'courses':
+                                $result = $this->upsertCourse($data, $operation);
+                                break;
+                            case 'fleet':
+                                $result = $this->upsertFleet($data, $operation);
+                                break;
+                            case 'invoices':
+                                $result = $this->upsertInvoice($data, $operation); // Now has school_id!
+                                break;
+                            case 'payments':
+                                $result = $this->upsertPayment($data, $operation);
+                                break;
+                            case 'schedules':
+                                $result = $this->upsertSchedule($data, $operation);
+                                break;
+                            default:
+                                $result = ['success' => false, 'error' => "Unknown type: {$type}"];
+                        }
                         
                         if ($result['success']) {
                             $totalUploaded++;
-                            $serverId = $result['id'] ?? null;
-                            
-                            // Store ID mapping if IDs differ
-                            if ($localId && $serverId && $localId != $serverId) {
-                                $idMappings[$type][$localId] = $serverId;
-                                Log::info("ID mapping created", [
-                                    'type' => $type,
-                                    'local_id' => $localId,
-                                    'server_id' => $serverId
-                                ]);
+                            // Track ID mappings for new records
+                            if (isset($result['id']) && isset($data['id']) && $result['id'] != $data['id']) {
+                                $idMappings[$type][$data['id']] = $result['id'];
+                                Log::info("ID mapping created: {$type}[{$data['id']}] -> {$result['id']}");
                             }
-                            
-                            $results[] = [
-                                'type' => $type,
-                                'local_id' => $localId,
-                                'server_id' => $serverId,
-                                'status' => 'success',
-                                'operation' => $operation
-                            ];
                         } else {
                             $allErrors[] = [
                                 'type' => $type,
-                                'local_id' => $localId,
-                                'error' => $result['error'] ?? 'Processing failed',
-                                'operation' => $operation,
-                                'item' => ['data' => $data]
-                            ];
-                            
-                            Log::warning("Failed to process {$type}", [
-                                'local_id' => $localId,
+                                'data' => $data,
                                 'error' => $result['error'] ?? 'Unknown error'
-                            ]);
+                            ];
                         }
                         
                     } catch (\Exception $e) {
-                        Log::error("Exception processing {$type}", [
+                        Log::error("Error processing {$type}", [
+                            'data' => $data ?? null,
                             'error' => $e->getMessage(),
-                            'change' => $change,
                             'trace' => $e->getTraceAsString()
                         ]);
                         
                         $allErrors[] = [
                             'type' => $type,
-                            'error' => $e->getMessage(),
-                            'operation' => $operation ?? 'unknown',
-                            'item' => ['data' => $change['data'] ?? $change]
+                            'data' => $data ?? null,
+                            'error' => $e->getMessage()
                         ];
                     }
                 }
