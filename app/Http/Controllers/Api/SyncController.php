@@ -570,6 +570,7 @@ class SyncController extends Controller
         $schedule = Schedule::updateOrCreate(
             ['id' => $data['id'] ?? null],
             [
+                'school_id' =>$data['school_id'],
                 'student' => $data['student'] ?? null,
                 'instructor' => $data['instructor'] ?? null,
                 'course' => $data['course'] ?? null,
@@ -590,49 +591,93 @@ class SyncController extends Controller
     }
 
     /**
-     * Upsert invoice record
-     */
-    private function upsertInvoice($data, $operation)
-    {
-        if ($operation === 'delete') {
-            Invoice::where('id', $data['id'])->delete();
-            return ['success' => true, 'id' => $data['id'], 'message' => 'Invoice deleted'];
-        }
+ * Fixed: Upsert invoice record with proper school_id handling
+ */
+private function upsertInvoice($data, $operation)
+{
+    Log::info('Processing invoice upsert', [
+        'operation' => $operation,
+        'school_id' => $data['school_id'] ?? 'missing',
+        'student_id' => $data['student'] ?? 'missing',
+        'course_id' => $data['course'] ?? 'missing'
+    ]);
 
-        // Validate required fields
-        if (empty($data['student']) || empty($data['total_amount'])) {
-            return ['success' => false, 'error' => 'Student and total amount are required'];
-        }
+    if ($operation === 'delete') {
+        Invoice::where('id', $data['id'])->delete();
+        return ['success' => true, 'id' => $data['id'], 'message' => 'Invoice deleted'];
+    }
 
-        // Validate foreign key references
-        if (!User::where('id', $data['student'])->where('school_id', $data['school_id'])->exists()) {
+    // Validate required fields
+    if (empty($data['student']) || empty($data['total_amount'])) {
+        return ['success' => false, 'error' => 'Student and total amount are required'];
+    }
+
+    // ✅ CRITICAL: Ensure school_id is set
+    if (empty($data['school_id'])) {
+        return ['success' => false, 'error' => 'School ID is required'];
+    }
+
+    try {
+        // Validate student exists and belongs to the correct school
+        $student = User::where('id', $data['student'])
+                       ->where('school_id', $data['school_id'])
+                       ->first();
+        
+        if (!$student) {
             return ['success' => false, 'error' => 'Referenced student does not exist or belongs to different school'];
         }
         
-        if (isset($data['course']) && !Course::where('id', $data['course'])->where('school_id', $data['school_id'])->exists()) {
-            return ['success' => false, 'error' => 'Referenced course does not exist or belongs to different school'];
+        // Validate course if provided
+        $course = null;
+        if (isset($data['course']) && $data['course']) {
+            $course = Course::where('id', $data['course'])
+                           ->where('school_id', $data['school_id'])
+                           ->first();
+            
+            if (!$course) {
+                return ['success' => false, 'error' => 'Referenced course does not exist or belongs to different school'];
+            }
         }
+
+        // Create or update the invoice
+        $invoiceData = [
+            'school_id' => $data['school_id'], // ✅ CRITICAL: Include school_id
+            'student' => $data['student'],
+            'course' => $data['course'] ?? null,
+            'invoice_number' => $data['invoice_number'] ?? 'INV-' . time(),
+            'lessons' => $data['lessons'] ?? 0,
+            'price_per_lesson' => $data['price_per_lesson'] ?? 0,
+            'total_amount' => $data['total_amount'],
+            'amountpaid' => $data['amountpaid'] ?? 0,
+            'status' => $data['status'] ?? 'pending',
+            'due_date' => $data['due_date'] ?? now()->addDays(30),
+            'used_lessons' => $data['used_lessons'] ?? 0,
+            'courseName' => $course ? $course->name : null,
+        ];
 
         $invoice = Invoice::updateOrCreate(
             ['id' => $data['id'] ?? null],
-            [
-                'student' => $data['student'],
-                'course' => $data['course'] ?? null,
-                'invoice_number' => $data['invoice_number'] ?? 'INV-' . time(),
-                'lessons' => $data['lessons'] ?? 0,
-                'price_per_lesson' => $data['price_per_lesson'] ?? 0,
-                'total_amount' => $data['total_amount'],
-                'amountpaid' => $data['amountpaid'] ?? 0,
-                'status' => $data['status'] ?? 'pending',
-                'due_date' => $data['due_date'] ?? now()->addDays(30),
-                'notes' => $data['notes'] ?? '',
-                'used_lessons' => $data['used_lessons'] ?? 0,
-                'courseName' => $data['courseName'] ?? null,
-            ]
+            $invoiceData
         );
 
+        Log::info('Invoice processed successfully', [
+            'id' => $invoice->id,
+            'school_id' => $invoice->school_id,
+            'student_id' => $invoice->student
+        ]);
+
         return ['success' => true, 'id' => $invoice->id, 'message' => 'Invoice processed'];
+        
+    } catch (\Exception $e) {
+        Log::error('Invoice upsert failed', [
+            'error' => $e->getMessage(),
+            'data' => $data,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return ['success' => false, 'error' => 'Database error: ' . $e->getMessage()];
     }
+}
 
     /**
      * Upsert payment record
