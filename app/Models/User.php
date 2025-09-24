@@ -15,22 +15,18 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
+        'school_id',
         'fname',
-        'lname',
+        'lname', 
         'email',
         'password',
-        'gender',
-        'date_of_birth',
-        'phone',
-        'idnumber',
-        'address',
-        'course',
         'role',
-        'is_super_admin',
-        'courseIds',
+        'phone',
         'status',
-        'school_id',
-        'last_login',
+        'date_of_birth',
+        'gender',
+        'address',
+        'idnumber',
     ];
 
     protected $hidden = [
@@ -43,7 +39,6 @@ class User extends Authenticatable
         'date_of_birth' => 'date',
         'last_login' => 'datetime',
         'is_super_admin' => 'boolean',
-        'courseIds' => 'array',
     ];
 
     // === RELATIONSHIPS ===

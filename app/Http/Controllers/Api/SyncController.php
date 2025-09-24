@@ -89,30 +89,59 @@ class SyncController extends BaseController
     }
 
 
+/**
+ * Enhanced processIndividualItem with better error handling
+ */
 private function processIndividualItem($type, $data, $operation)
 {
     try {
+        Log::debug("Processing {$type} with operation {$operation}", [
+            'data_keys' => array_keys($data),
+            'has_id' => isset($data['id'])
+        ]);
+
+        $result = null;
+        
         switch ($type) {
             case 'users':
-                return $this->upsertUser($data, $operation);
+                $result = $this->upsertUser($data, $operation);
+                break;
             case 'courses':
-                return $this->upsertCourse($data, $operation);
+                $result = $this->upsertCourse($data, $operation);
+                break;
             case 'fleet':
-                return $this->upsertFleet($data, $operation);
+                $result = $this->upsertFleet($data, $operation);
+                break;
             case 'schedules':
-                return $this->upsertSchedule($data, $operation);
+                $result = $this->upsertSchedule($data, $operation);
+                break;
             case 'invoices':
-                return $this->upsertInvoice($data, $operation);
+                $result = $this->upsertInvoice($data, $operation);
+                break;
             case 'payments':
-                return $this->upsertPayment($data, $operation);
+                $result = $this->upsertPayment($data, $operation);
+                break;
             default:
                 throw new \Exception("Unknown data type: {$type}");
         }
+
+        // ✅ FIX: Ensure consistent return format
+        if (is_array($result)) {
+            return $result;
+        } else {
+            // Legacy methods that return boolean
+            return [
+                'success' => $result === true,
+                'message' => $result ? 'Processed successfully' : 'Processing failed'
+            ];
+        }
+
     } catch (\Exception $e) {
         Log::error("Error processing {$type} item", [
             'error' => $e->getMessage(),
             'data' => $data,
-            'operation' => $operation
+            'operation' => $operation,
+            'trace' => $e->getTraceAsString()
         ]);
         
         return [
@@ -123,6 +152,7 @@ private function processIndividualItem($type, $data, $operation)
 }
 
 
+
 public function upload(Request $request)
 {
     DB::beginTransaction();
@@ -130,82 +160,190 @@ public function upload(Request $request)
     try {
         $currentUser = auth()->user();
         $schoolId = $currentUser->school_id;
+        $changes = $request->get('changes', []);
 
-        if (!$schoolId) {
-            return $this->sendError('User does not belong to any school.', [], 400);
+        if (!$schoolId || empty($changes)) {
+            // ... existing validation code
         }
 
         $results = [];
         $allErrors = [];
         $totalUploaded = 0;
-
-        // ✅ CRITICAL: Process in this exact order to avoid foreign key errors
-        $processingOrder = [
-            'users',      // First: Create users
-            'courses',    // Second: Create courses  
-            'fleet',      // Third: Create vehicles
-            'invoices',   // Fourth: Create invoices (BEFORE payments)
-            'payments',   // Fifth: Create payments (AFTER invoices)
-            'schedules',  // Last: Create schedules (they reference everything)
+        $totalProcessed = 0;
+        
+        // ✅ NEW: Track ID mappings for relationships
+        $idMappings = [
+            'users' => [],     // old_id => new_id
+            'courses' => [],   // old_id => new_id
+            'fleet' => [],     // old_id => new_id
+            'invoices' => [],  // old_id => new_id
         ];
 
-        foreach ($processingOrder as $type) {
-            if ($request->has($type)) {
-                Log::info("Processing {$type} data");
-                
-                $result = $this->processDataType($type, $request->input($type), $schoolId);
-                $results[$type] = $result;
-                $totalUploaded += $result['uploaded'];
-                
-                if (!empty($result['errors'])) {
-                    $allErrors[$type] = $result['errors'];
-                }
+        // ✅ CRITICAL: Process in dependency order to build ID mappings
+        $processingOrder = ['users', 'courses', 'fleet', 'invoices', 'payments', 'schedules'];
+        
+        // Group changes by type for ordered processing
+        $changesByType = [];
+        foreach ($changes as $change) {
+            $type = $change['table'];
+            if (!isset($changesByType[$type])) {
+                $changesByType[$type] = [];
+            }
+            $changesByType[$type][] = $change;
+        }
 
-                // Stop processing if critical errors in invoices (before payments)
-                if ($type === 'invoices' && !empty($result['errors'])) {
-                    Log::warning("Invoice errors detected, skipping payment processing to avoid foreign key errors");
-                    break;
+        // Process each type in dependency order
+        foreach ($processingOrder as $type) {
+            if (!isset($changesByType[$type])) continue;
+            
+            foreach ($changesByType[$type] as $change) {
+                try {
+                    $totalProcessed++;
+                    $data = $change['data'];
+                    $operation = $change['operation'] ?? 'upsert';
+                    $localId = $data['id'] ?? null;
+                    
+                    // ✅ APPLY ID MAPPINGS for foreign keys
+                    if ($type === 'invoices') {
+                        // Map student ID
+                        if (isset($data['student']) && isset($idMappings['users'][$data['student']])) {
+                            $data['student'] = $idMappings['users'][$data['student']];
+                            Log::info("Mapped invoice student ID: {$change['data']['student']} -> {$data['student']}");
+                        }
+                        
+                        // Map course ID  
+                        if (isset($data['course']) && isset($idMappings['courses'][$data['course']])) {
+                            $data['course'] = $idMappings['courses'][$data['course']];
+                            Log::info("Mapped invoice course ID: {$change['data']['course']} -> {$data['course']}");
+                        }
+                    }
+                    
+                    if ($type === 'schedules') {
+                        // Map student, instructor, course, and vehicle IDs
+                        if (isset($data['student']) && isset($idMappings['users'][$data['student']])) {
+                            $data['student'] = $idMappings['users'][$data['student']];
+                        }
+                        if (isset($data['instructor']) && isset($idMappings['users'][$data['instructor']])) {
+                            $data['instructor'] = $idMappings['users'][$data['instructor']];
+                        }
+                        if (isset($data['course']) && isset($idMappings['courses'][$data['course']])) {
+                            $data['course'] = $idMappings['courses'][$data['course']];
+                        }
+                        if (isset($data['car']) && isset($idMappings['fleet'][$data['car']])) {
+                            $data['car'] = $idMappings['fleet'][$data['car']];
+                        }
+                    }
+
+                    // Process the item
+                    $data['school_id'] = $schoolId;
+                    $result = $this->processIndividualItem($type, $data, $operation);
+                    
+                    if ($result['success']) {
+                        $totalUploaded++;
+                        $serverId = $result['id'] ?? null;
+                        
+                        // ✅ STORE ID MAPPING for future references
+                        if ($localId && $serverId && $localId != $serverId) {
+                            $idMappings[$type][$localId] = $serverId;
+                            Log::info("ID mapping: {$type} {$localId} -> {$serverId}");
+                        }
+                        
+                        $results[] = [
+                            'type' => $type,
+                            'local_id' => $localId,
+                            'server_id' => $serverId,
+                            'status' => 'success'
+                        ];
+                    } else {
+                        $allErrors[] = [
+                            'type' => $type,
+                            'item_id' => $localId,
+                            'error' => $result['error'] ?? 'Processing failed',
+                            'item' => ['data' => $data]
+                        ];
+                    }
+                    
+                } catch (\Exception $e) {
+                    Log::error("Error processing individual change", [
+                        'error' => $e->getMessage(),
+                        'change' => $change,
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    
+                    $allErrors[] = [
+                        'error' => $e->getMessage(),
+                        'item' => ['data' => $change['data'] ?? $change],
+                        'type' => $change['table'] ?? 'unknown'
+                    ];
                 }
             }
         }
 
-        // Check if we have critical errors that should cause rollback
-        $hasCriticalErrors = $this->checkForCriticalErrors($allErrors);
+        // Determine success status
+        $hasErrors = !empty($allErrors);
+        $hasSuccesses = $totalUploaded > 0;
         
-        if ($hasCriticalErrors && $totalUploaded === 0) {
-            DB::rollback();
-            return $this->sendError('Upload failed completely due to critical errors.', [
+        if ($hasSuccesses && !$hasErrors) {
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Upload completed successfully.',
+                'data' => [
+                    'uploaded' => $totalUploaded,
+                    'errors' => [],
+                    'successful_items' => $results,
+                    'id_mappings' => $idMappings, // ✅ RETURN ID MAPPINGS
+                    'timestamp' => now()->toISOString(),
+                ]
+            ], 200);
+            
+        } elseif ($hasSuccesses && $hasErrors) {
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Upload partially completed.',
                 'data' => [
                     'uploaded' => $totalUploaded,
                     'errors' => $allErrors,
+                    'successful_items' => $results,
+                    'id_mappings' => $idMappings, // ✅ RETURN ID MAPPINGS
+                    'partial' => true,
+                    'timestamp' => now()->toISOString(),
+                ]
+            ], 200);
+            
+        } else {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Upload failed completely.',
+                'data' => [
+                    'uploaded' => 0,
+                    'errors' => $allErrors,
+                    'successful_items' => [],
+                    'timestamp' => now()->toISOString(),
                 ]
             ], 422);
         }
 
-        DB::commit();
-
-        $responseMessage = empty($allErrors) ? 'Upload successful.' : 'Upload partially failed.';
-        $responseCode = empty($allErrors) ? 200 : 422;
-
-        return response()->json([
-            'success' => $totalUploaded > 0,
-            'message' => $responseMessage,
-            'data' => [
-                'uploaded' => $totalUploaded,
-                'errors' => $allErrors,
-                'successful_items' => [], // You can populate this if needed
-                'timestamp' => now()->toISOString(),
-            ]
-        ], $responseCode);
-
     } catch (\Exception $e) {
         DB::rollback();
-        Log::error('Sync upload failed', [
+        Log::error('Sync upload failed completely', [
             'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
         ]);
         
-        return $this->sendError('Upload failed.', ['error' => $e->getMessage()], 500);
+        return response()->json([
+            'success' => false,
+            'message' => 'Upload failed: ' . $e->getMessage(),
+            'data' => [
+                'uploaded' => 0,
+                'errors' => [['error' => $e->getMessage()]],
+                'successful_items' => [],
+                'timestamp' => now()->toISOString(),
+            ]
+        ], 500);
     }
 }
 
@@ -360,87 +498,243 @@ private function checkForCriticalErrors($errors)
     return false;
 }
 
+/**
+ * Check if array is associative (Map format)
+ */
+private function isAssociativeArray($array)
+{
+    if (!is_array($array) || empty($array)) {
+        return false;
+    }
+    
+    return array_keys($array) !== range(0, count($array) - 1);
+}
+
+/**
+ * Convert Map format to List format
+ */
+private function convertMapFormatToListFormat($mapFormat)
+{
+    $listFormat = [];
+    
+    foreach ($mapFormat as $table => $items) {
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                $listFormat[] = [
+                    'table' => $table,
+                    'operation' => $item['operation'] ?? 'upsert',
+                    'data' => $item['data'] ?? $item,
+                    'id' => isset($item['data']) ? ($item['data']['id'] ?? null) : ($item['id'] ?? null)
+                ];
+            }
+        }
+    }
+    
+    return $listFormat;
+}
+
 
 
 private function upsertUser($data, $operation)
 {
-    if ($operation === 'delete') {
-        User::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
-        return;
-    }
+    try {
+        if ($operation === 'delete') {
+            User::where('id', $data['id'] ?? null)
+                 ->where('school_id', $data['school_id'] ?? null)
+                 ->delete();
+            return ['success' => true, 'message' => 'User deleted'];
+        }
 
-    // ✅ FIXED: Check if email exists before accessing it
-    if (!isset($data['email'])) {
-        throw new \Exception('Email is required for user operations');
-    }
+        // ✅ FIX 1: Validate required fields with proper null checks
+        if (empty($data['email'])) {
+            throw new \Exception('Email is required for user operations');
+        }
 
-    User::updateOrCreate(
-        ['id' => $data['id']],
-        [
+        // ✅ FIX 2: Handle all data fields safely
+        $userData = [
+            'school_id' => $data['school_id'],
             'fname' => $data['fname'] ?? '',
             'lname' => $data['lname'] ?? '',
             'email' => $data['email'],
             'role' => $data['role'] ?? 'student',
             'phone' => $data['phone'] ?? '',
-            'password' => $data['password'],
             'status' => $data['status'] ?? 'active',
-            'school_id' => $data['school_id'],
             'date_of_birth' => $data['date_of_birth'] ?? '2000-01-01',
             'gender' => $data['gender'] ?? 'other',
             'address' => $data['address'] ?? '',
             'idnumber' => $data['idnumber'] ?? null,
-        ]
-    );
+        ];
+
+        // ✅ FIX 3: Handle password safely - don't sync existing passwords for security
+        if (isset($data['password']) && !empty($data['password']) && $operation === 'create') {
+            // Only set password for new users
+            $userData['password'] = bcrypt($data['password']);
+        }
+
+        Log::info('Processing user', [
+            'operation' => $operation,
+            'user_id' => $data['id'] ?? 'new',
+            'email' => $data['email'],
+            'user_data_keys' => array_keys($userData)
+        ]);
+
+        $user = User::updateOrCreate(
+            [
+                'id' => $data['id'] ?? null,
+                'school_id' => $data['school_id'],
+            ],
+            $userData
+        );
+
+        Log::info('User processed successfully', [
+            'id' => $user->id,
+            'email' => $user->email,
+            'role' => $user->role
+        ]);
+
+        return ['success' => true, 'id' => $user->id, 'message' => 'User processed'];
+
+    } catch (\Exception $e) {
+        Log::error('Error processing user', [
+            'error' => $e->getMessage(),
+            'data' => $data,
+            'operation' => $operation,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return [
+            'success' => false, 
+            'error' => $e->getMessage(),
+            'debug_data' => $data
+        ];
+    }
 }
 
+
+// ✅ EXAMPLE upsert method (implement similar for other types)
 private function upsertCourse($data, $operation)
 {
-    if ($operation === 'delete') {
-        Course::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
-        return;
-    }
+    try {
+        // Validate required fields
+        if (empty($data['name'])) {
+            return ['success' => false, 'error' => 'Course name is required'];
+        }
 
-    // ✅ FIXED: Check if name exists and don't try to access email
-    if (!isset($data['name'])) {
-        throw new \Exception('Name is required for course operations');
-    }
+        $course = Course::updateOrCreate(
+            [
+                'id' => $data['id'] ?? null,
+                'school_id' => $data['school_id']
+            ],
+            [
+                'name' => $data['name'],
+                'price' => $data['price'] ?? 0,
+                'status' => $data['status'] ?? 'active',
+                'school_id' => $data['school_id'],
+            ]
+        );
 
-    Course::updateOrCreate(
-        ['id' => $data['id']],
-        [
-            'name' => $data['name'],
-            'price' => $data['price'] ?? 0,
-            'status' => $data['status'] ?? 'active',
-            'school_id' => $data['school_id'],
-        ]
-    );
+        Log::info("Course processed successfully", [
+            'id' => $course->id,
+            'name' => $course->name,
+            'operation' => $operation
+        ]);
+
+        return ['success' => true, 'id' => $course->id];
+        
+    } catch (\Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 private function upsertFleet($data, $operation)
 {
-    if ($operation === 'delete') {
-        Fleet::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
-        return;
-    }
+    try {
+        if ($operation === 'delete') {
+            Fleet::where('id', $data['id'] ?? null)
+                 ->where('school_id', $data['school_id'] ?? null)
+                 ->delete();
+            return ['success' => true, 'message' => 'Fleet item deleted'];
+        }
 
-    // ✅ FIXED: Check required fields exist
-    if (!isset($data['make']) || !isset($data['model'])) {
-        throw new \Exception('Make and model are required for fleet operations');
-    }
+        // ✅ FIX 1: Validate required fields with null checks
+        if (empty($data['make'])) {
+            throw new \Exception('Make is required for fleet operations');
+        }
+        
+        if (empty($data['model'])) {
+            throw new \Exception('Model is required for fleet operations');
+        }
 
-    Fleet::updateOrCreate(
-        ['id' => $data['id']],
-        [
+        // ✅ FIX 2: Handle all possible field names and null values safely
+        $fleetData = [
             'make' => $data['make'],
             'model' => $data['model'],
-            'modelyear' => $data['modelyear'] ?? $data['modelyear'] ?? date('Y'),
-            'carplate' => $data['carplate'] ?? $data['carPlate'] ?? '',
+            'modelyear' => $data['modelyear'] ?? $data['model_year'] ?? date('Y'),
+            'carplate' => $data['carplate'] ?? $data['carPlate'] ?? $data['car_plate'] ?? '',
             'status' => $data['status'] ?? 'available',
-            'instructor' => $data['instructor'] ?? null, // ✅ FIXED: Handle null instructor
             'school_id' => $data['school_id'],
-        ]
-    );
+        ];
+
+        // ✅ FIX 3: Handle instructor field properly (this might be the null access issue)
+        if (isset($data['instructor']) && !empty($data['instructor'])) {
+            // If instructor is provided and not empty
+            $fleetData['instructor'] = is_numeric($data['instructor']) ? (int)$data['instructor'] : null;
+        } elseif (isset($data['assigned_instructor_id'])) {
+            // Alternative field name
+            $fleetData['instructor'] = is_numeric($data['assigned_instructor_id']) ? (int)$data['assigned_instructor_id'] : null;
+        } elseif (isset($data['instructor_id'])) {
+            // Another alternative field name
+            $fleetData['instructor'] = is_numeric($data['instructor_id']) ? (int)$data['instructor_id'] : null;
+        } else {
+            // No instructor assigned
+            $fleetData['instructor'] = null;
+        }
+
+        // ✅ FIX 4: Add additional fields if they exist
+        if (isset($data['notes'])) {
+            $fleetData['notes'] = $data['notes'];
+        }
+
+        Log::info('Processing fleet item', [
+            'original_data' => $data,
+            'processed_data' => $fleetData,
+            'operation' => $operation
+        ]);
+
+        // ✅ FIX 5: Use updateOrCreate with proper conditions
+        $fleet = Fleet::updateOrCreate(
+            [
+                'id' => $data['id'] ?? null,
+                'school_id' => $data['school_id'],
+            ],
+            $fleetData
+        );
+
+        Log::info('Fleet item processed successfully', [
+            'id' => $fleet->id,
+            'make' => $fleet->make,
+            'model' => $fleet->model,
+            'carplate' => $fleet->carplate
+        ]);
+
+        return ['success' => true, 'id' => $fleet->id, 'message' => 'Fleet item processed'];
+
+    } catch (\Exception $e) {
+        Log::error('Error processing fleet item', [
+            'error' => $e->getMessage(),
+            'data' => $data,
+            'operation' => $operation,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return [
+            'success' => false, 
+            'error' => $e->getMessage(),
+            'debug_data' => $data
+        ];
+    }
 }
+
 
 private function upsertSchedule($data, $operation)
 {
@@ -477,78 +771,101 @@ private function upsertSchedule($data, $operation)
     );
 }
 
+/**
+ * ✅ FIXED: upsertInvoice method with proper field handling
+ */
 private function upsertInvoice($data, $operation)
 {
-    if ($operation === 'delete') {
-        Invoice::where('id', $data['id'])->where('school_id', $data['school_id'])->delete();
-        return;
-    }
+    try {
+        if ($operation === 'delete') {
+            Invoice::where('id', $data['id'] ?? null)
+                   ->where('school_id', $data['school_id'] ?? null)
+                   ->delete();
+            return ['success' => true, 'message' => 'Invoice deleted'];
+        }
 
-    // ✅ CRITICAL FIX: For partial updates, use direct update instead of updateOrCreate
-    if ($operation === 'update') {
-        // Check if record exists first
-        $existingInvoice = Invoice::where('id', $data['id'])->first();
+        // ✅ FIX 1: Handle the field name differences between client and server
+        $studentId = $data['student'] ?? $data['student_id'] ?? null;
+        $courseId = $data['course'] ?? $data['course_id'] ?? null;
         
-        if (!$existingInvoice) {
-            throw new \Exception("Cannot update invoice {$data['id']} - invoice does not exist");
+        // ✅ FIX 2: Validate required fields
+        if (empty($studentId)) {
+            throw new \Exception('Student ID is required for invoice operations');
         }
-        
-        // Build update array with only the fields that are present
-        $updateData = [];
-        
-        if (array_key_exists('amountpaid', $data)) {
-            $updateData['amountpaid'] = $data['amountpaid'];
+
+        if (empty($data['total_amount']) && empty($data['amount'])) {
+            throw new \Exception('Total amount is required for invoice operations');
         }
-        
-        if (array_key_exists('status', $data)) {
-            $updateData['status'] = $data['status'];
+
+        // ✅ FIX 3: Verify that referenced records exist
+        if ($studentId && !User::where('id', $studentId)->where('school_id', $data['school_id'])->exists()) {
+            throw new \Exception("Student with ID {$studentId} not found in school {$data['school_id']}");
         }
-        
-        if (array_key_exists('total_amount', $data)) {
-            $updateData['total_amount'] = $data['total_amount'];
+
+        if ($courseId && !Course::where('id', $courseId)->where('school_id', $data['school_id'])->exists()) {
+            throw new \Exception("Course with ID {$courseId} not found in school {$data['school_id']}");
         }
-        
-        if (array_key_exists('lessons', $data)) {
-            $updateData['lessons'] = $data['lessons'];
+
+        // ✅ FIX 4: Build invoice data with proper field mapping
+        $invoiceData = [
+            'school_id' => $data['school_id'],
+            'student' => $studentId,  // Your table uses 'student' not 'student_id'
+            'course' => $courseId,    // Your table uses 'course' not 'course_id'
+            'invoice_number' => $data['invoice_number'] ?? 'INV-' . time(),
+            'lessons' => $data['lessons'] ?? 1,
+            'price_per_lesson' => $data['price_per_lesson'] ?? 0,
+            'total_amount' => $data['total_amount'] ?? $data['amount'] ?? 0,
+            'amountpaid' => $data['amountpaid'] ?? $data['paid_amount'] ?? 0,
+            'status' => $data['status'] ?? 'unpaid',
+            'due_date' => $data['due_date'] ?? now()->addDays(30),
+        ];
+
+        // ✅ FIX 5: Handle optional fields
+        if (isset($data['notes'])) {
+            $invoiceData['notes'] = $data['notes'];
         }
+
+        Log::info('Processing invoice', [
+            'operation' => $operation,
+            'invoiceId' => $data['id'] ?? 'new',
+            'student' => $studentId,
+            'course' => $courseId,
+            'total_amount' => $invoiceData['total_amount']
+        ]);
+
+        $invoice = Invoice::updateOrCreate(
+            [
+                'id' => $data['id'] ?? null,
+                'school_id' => $data['school_id'],
+            ],
+            $invoiceData
+        );
+
+        Log::info('Invoice processed successfully', [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'student' => $invoice->student,
+            'total_amount' => $invoice->total_amount
+        ]);
+
+        return ['success' => true, 'id' => $invoice->id, 'message' => 'Invoice processed'];
+
+    } catch (\Exception $e) {
+        Log::error('Error processing invoice', [
+            'error' => $e->getMessage(),
+            'data' => $data,
+            'operation' => $operation,
+            'trace' => $e->getTraceAsString()
+        ]);
         
-        if (array_key_exists('price_per_lesson', $data)) {
-            $updateData['price_per_lesson'] = $data['price_per_lesson'];
-        }
-        
-        if (array_key_exists('due_date', $data)) {
-            $updateData['due_date'] = $data['due_date'];
-        }
-        
-        // Only update if we have data to update
-        if (!empty($updateData)) {
-            $existingInvoice->update($updateData);
-        }
-        
-        return;
+        return [
+            'success' => false, 
+            'error' => $e->getMessage(),
+            'debug_data' => $data
+        ];
     }
-    
-    // For CREATE operations, use updateOrCreate with all required fields
-    $updateFields = [
-        'school_id' => $data['school_id'],
-    ];
-    
-    // Set required fields with defaults for create operations
-    $updateFields['invoice_number'] = $data['invoice_number'] ?? 'AUTO-' . time();
-    $updateFields['student'] = $data['student'] ?? $data['student_id'] ?? null;
-    $updateFields['course'] = $data['course'] ?? $data['course_id'] ?? null;
-    $updateFields['lessons'] = $data['lessons'] ?? 1;
-    $updateFields['price_per_lesson'] = $data['price_per_lesson'] ?? 0;
-    $updateFields['total_amount'] = $data['total_amount'] ?? $data['amount'] ?? 0;
-    $updateFields['amountpaid'] = $data['amountpaid'] ?? 0;
-    $updateFields['status'] = $data['status'] ?? 'unpaid';
-    $updateFields['due_date'] = $data['due_date'] ?? now()->addDays(30);
-    
-    Invoice::updateOrCreate(
-        ['id' => $data['id']],
-        $updateFields
-    );
 }
+
 
 // ALSO REPLACE your upsertPayment method to handle the same issue:
 
