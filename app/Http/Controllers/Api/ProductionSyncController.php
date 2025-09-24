@@ -65,54 +65,88 @@ class ProductionSyncController extends BaseController
      * Register a new device for sync
      */
     public function registerDevice(Request $request)
-    {
-        try {
-            $currentUser = auth()->user();
-            $schoolId = $currentUser->school_id;
-            $deviceId = $request->get('device_id');
-            $platform = $request->get('platform', 'unknown');
-            $appVersion = $request->get('app_version', '1.0.0');
+{
+    try {
+        $currentUser = auth()->user();
+        $schoolId = $currentUser->school_id;
+        $deviceId = $request->get('device_id');
+        $platform = $request->get('platform', 'unknown');
+        $appVersion = $request->get('app_version', '1.0.0');
 
-            if (!$schoolId || !$deviceId) {
-                return $this->sendError('School ID and Device ID are required.', [], 400);
-            }
+        // Enhanced debugging
+        Log::info('=== DEVICE REGISTRATION REQUEST ===', [
+            'user_id' => $currentUser->id,
+            'user_email' => $currentUser->email,
+            'school_id' => $schoolId,
+            'device_id' => $deviceId,
+            'platform' => $platform,
+            'app_version' => $appVersion,
+            'request_body' => $request->all(),
+            'timestamp' => now()->toISOString(),
+        ]);
 
-            // Create or update device registration
-            $device = DeviceRegistration::updateOrCreate(
-                [
-                    'school_id' => $schoolId,
-                    'device_id' => $deviceId,
-                ],
-                [
-                    'user_id' => $currentUser->id,
-                    'platform' => $platform,
-                    'app_version' => $appVersion,
-                    'last_seen' => now(),
-                    'status' => 'active',
-                ]
-            );
-
-            Log::info('Device registered', [
+        if (!$schoolId || !$deviceId) {
+            Log::error('Device registration failed - missing required fields', [
                 'school_id' => $schoolId,
                 'device_id' => $deviceId,
-                'platform' => $platform,
-                'user_id' => $currentUser->id
             ]);
-
-            return $this->sendResponse([
-                'device_id' => $device->device_id,
-                'registered_at' => $device->created_at->toISOString(),
-            ], 'Device registered successfully.');
-
-        } catch (\Exception $e) {
-            Log::error('Error registering device', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return $this->sendError('Failed to register device.', ['error' => $e->getMessage()], 500);
+            return $this->sendError('School ID and Device ID are required.', [], 400);
         }
+
+        // Create or update device registration
+        $device = DeviceRegistration::updateOrCreate(
+            [
+                'school_id' => $schoolId,
+                'device_id' => $deviceId,
+            ],
+            [
+                'user_id' => $currentUser->id,
+                'platform' => $platform,
+                'app_version' => $appVersion,
+                'last_seen' => now(),
+                'status' => 'active',
+            ]
+        );
+
+        // Verify the device was actually saved
+        $savedDevice = DeviceRegistration::where('school_id', $schoolId)
+            ->where('device_id', $deviceId)
+            ->first();
+
+        if (!$savedDevice) {
+            Log::error('Device registration failed - not found in database after save', [
+                'school_id' => $schoolId,
+                'device_id' => $deviceId,
+            ]);
+            return $this->sendError('Failed to save device registration.', [], 500);
+        }
+
+        Log::info('=== DEVICE REGISTRATION SUCCESS ===', [
+            'id' => $savedDevice->id,
+            'school_id' => $savedDevice->school_id,
+            'device_id' => $savedDevice->device_id,
+            'platform' => $savedDevice->platform,
+            'created_at' => $savedDevice->created_at,
+            'updated_at' => $savedDevice->updated_at,
+        ]);
+
+        return $this->sendResponse([
+            'device_id' => $device->device_id,
+            'registered_at' => $device->created_at->toISOString(),
+            'status' => 'active',
+        ], 'Device registered successfully.');
+
+    } catch (\Exception $e) {
+        Log::error('=== DEVICE REGISTRATION ERROR ===', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+
+        return $this->sendError('Failed to register device.', ['error' => $e->getMessage()], 500);
     }
+}
 
     /**
      * Download all school data (for first-time setup)

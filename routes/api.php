@@ -29,15 +29,6 @@ Route::prefix('schools')->group(function () {
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [AuthController::class, 'register']);
 
-// Health check
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'ok',
-        'timestamp' => now(),
-        'version' => '1.0.0',
-        'environment' => app()->environment(),
-    ]);
-});
 Route::middleware(['auth:sanctum', 'school.member'])->group(function () {
     
     // Production sync endpoints
