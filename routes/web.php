@@ -20,6 +20,7 @@ use App\Http\Controllers\PublicSchoolRegistrationController; // FIXED: Changed t
 use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminSubscriptionPackageController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
+use App\Http\Controllers\School\SchoolSubscriptionController;
 
 
 // School Registration Routes (add these BEFORE the auth middleware group)
@@ -266,6 +267,50 @@ Route::middleware(['auth', 'school_admin_only'])->prefix('admin')->name('admin.'
     Route::get('/my-school/edit', [AdminSchoolController::class, 'editMySchool'])->name('my-school.edit');
     Route::put('/my-school', [AdminSchoolController::class, 'updateMySchool'])->name('my-school.update');
 });
+
+// === SCHOOL ADMIN SPECIFIC ROUTES ===
+Route::middleware(['auth', 'school_admin'])->prefix('admin/school')->name('school.')->group(function () {
+    
+    // === SUBSCRIPTION MANAGEMENT FOR SCHOOL ADMINS ===
+    Route::prefix('subscription')->name('subscription.')->group(function () {
+        
+        // Main subscription dashboard
+        Route::get('/', [SchoolSubscriptionController::class, 'index'])
+             ->name('index');
+        
+        // Billing history
+        Route::get('/billing', [SchoolSubscriptionController::class, 'billing'])
+             ->name('billing');
+        
+        // Upgrade options
+        Route::get('/upgrade', [SchoolSubscriptionController::class, 'upgrade'])
+             ->name('upgrade');
+        
+        // Process upgrade (AJAX)
+        Route::post('/process-upgrade', [SchoolSubscriptionController::class, 'processUpgrade'])
+             ->name('process-upgrade');
+        
+        // Pay specific invoice (AJAX)
+        Route::post('/pay-invoice', [SchoolSubscriptionController::class, 'payInvoice'])
+             ->name('pay-invoice');
+        
+        // Handle payment success (AJAX)
+        Route::post('/payment-success', [SchoolSubscriptionController::class, 'handlePaymentSuccess'])
+             ->name('payment-success');
+        
+        // Download invoice
+        Route::get('/invoice/{invoice}/download', [SchoolSubscriptionController::class, 'downloadInvoice'])
+             ->name('invoice.download');
+    });
+
+    // Your existing school admin routes
+    Route::get('/students', [AdminUserController::class, 'students'])->name('students.index');
+    Route::get('/instructors', [AdminUserController::class, 'instructors'])->name('instructors.index');
+    Route::get('/my-school', [AdminSchoolController::class, 'mySchool'])->name('my-school');
+    Route::get('/my-school/edit', [AdminSchoolController::class, 'editMySchool'])->name('my-school.edit');
+    Route::put('/my-school', [AdminSchoolController::class, 'updateMySchool'])->name('my-school.update');
+});
+
 
 // === FALLBACK ROUTE ===
 Route::fallback(function () {

@@ -325,111 +325,103 @@
                 </li>
             </ul>
 
-        @else
-            <!-- SCHOOL ADMIN ONLY MENU -->
-            <div class="sidebar-heading">School Management</div>
-            <ul class="navbar-nav">
-                <!-- Users -->
-                <li class="nav-item {{ request()->routeIs('admin.users.index*', 'admin.users.create*', 'admin.users.show*', 'admin.users.edit*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.users.index') }}">
-                        <i class="fas fa-fw fa-users"></i>
-                        <span>Users</span>
-                    </a>
-                </li>
+       @else
+    <!-- SCHOOL ADMIN ONLY MENU -->
+    <div class="sidebar-heading">School Management</div>
+    <ul class="navbar-nav">
+        <!-- Users -->
+        <li class="nav-item {{ request()->routeIs('admin.users.index*', 'admin.users.create*', 'admin.users.show*', 'admin.users.edit*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.users.index') }}">
+                <i class="fas fa-fw fa-users"></i>
+                <span>Users</span>
+            </a>
+        </li>
 
-                <!-- Students -->
-                <li class="nav-item {{ request()->routeIs('admin.students*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.students.index') }}">
-                        <i class="fas fa-fw fa-user-graduate"></i>
-                        <span>Students</span>
-                    </a>
-                </li>
+        <!-- Students -->
+        <li class="nav-item {{ request()->routeIs('admin.students*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.students.index') }}">
+                <i class="fas fa-fw fa-user-graduate"></i>
+                <span>Students</span>
+            </a>
+        </li>
 
-                <!-- Instructors -->
-                <li class="nav-item {{ request()->routeIs('admin.instructors*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.instructors.index') }}">
-                        <i class="fas fa-fw fa-chalkboard-teacher"></i>
-                        <span>Instructors</span>
-                    </a>
-                </li>
+        <!-- Instructors -->
+        <li class="nav-item {{ request()->routeIs('admin.instructors*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.instructors.index') }}">
+                <i class="fas fa-fw fa-chalkboard-teacher"></i>
+                <span>Instructors</span>
+            </a>
+        </li>
 
-                <!-- Schedules -->
-                <li class="nav-item {{ request()->routeIs('admin.schedules*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.schedules.index') }}">
-                        <i class="fas fa-fw fa-calendar-alt"></i>
-                        <span>Schedules</span>
-                    </a>
-                </li>
+        <!-- Schedules -->
+        <li class="nav-item {{ request()->routeIs('admin.schedules*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.schedules.index') }}">
+                <i class="fas fa-fw fa-calendar-alt"></i>
+                <span>Schedules</span>
+            </a>
+        </li>
 
-                <!-- Fleet -->
-                <li class="nav-item {{ request()->routeIs('admin.fleet*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.fleet.index') }}">
-                        <i class="fas fa-fw fa-car"></i>
-                        <span>Vehicles</span>
-                    </a>
-                </li>
+        <!-- Fleet -->
+        <li class="nav-item {{ request()->routeIs('admin.fleet*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.fleet.index') }}">
+                <i class="fas fa-fw fa-car"></i>
+                <span>Vehicles</span>
+            </a>
+        </li>
 
-                <!-- Courses -->
-                <li class="nav-item {{ request()->routeIs('admin.courses*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.courses.index') }}">
-                        <i class="fas fa-fw fa-graduation-cap"></i>
-                        <span>Courses</span>
-                    </a>
-                </li>
-            </ul>
+        <!-- Courses -->
+        <li class="nav-item {{ request()->routeIs('admin.courses*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.courses.index') }}">
+                <i class="fas fa-fw fa-book"></i>
+                <span>Courses</span>
+            </a>
+        </li>
 
-            <hr class="sidebar-divider">
+        <!-- Billing -->
+        <li class="nav-item {{ request()->routeIs('admin.invoices*', 'admin.payments*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.invoices.index') }}">
+                <i class="fas fa-fw fa-file-invoice-dollar"></i>
+                <span>Billing</span>
+            </a>
+        </li>
+    </ul>
 
-            <!-- Financial Management (School Admin) -->
-            <div class="sidebar-heading">Financial</div>
-            <ul class="navbar-nav">
-                <!-- Invoices -->
-                <li class="nav-item {{ request()->routeIs('admin.invoices*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.invoices.index') }}">
-                        <i class="fas fa-fw fa-file-invoice"></i>
-                        <span>Invoices</span>
-                    </a>
-                </li>
+    <hr class="sidebar-divider">
 
-                <!-- Payments -->
-                <li class="nav-item {{ request()->routeIs('admin.payments*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.payments.index') }}">
-                        <i class="fas fa-fw fa-credit-card"></i>
-                        <span>Payments</span>
-                    </a>
-                </li>
+    <!-- Account Management Section -->
+    <div class="sidebar-heading">Account</div>
+    <ul class="navbar-nav">
+        <!-- MY SUBSCRIPTION - ADD THIS NEW MENU ITEM -->
+        <li class="nav-item {{ request()->routeIs('school.subscription*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('school.subscription.index') }}">
+                <i class="fas fa-fw fa-credit-card"></i>
+                <span>My Subscription</span>
+                @if(Auth::user()->school && Auth::user()->school->getSubscriptionStats()['outstanding_balance'] > 0)
+                    <span class="badge badge-danger badge-counter">
+                        ${{ number_format(Auth::user()->school->getSubscriptionStats()['outstanding_balance'], 0) }}
+                    </span>
+                @endif
+            </a>
+        </li>
 
-                <!-- Reports -->
-                <li class="nav-item {{ request()->routeIs('admin.reports.index*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.reports.index') }}">
-                        <i class="fas fa-fw fa-chart-bar"></i>
-                        <span>Reports</span>
-                    </a>
-                </li>
-            </ul>
+        <!-- My School -->
+        <li class="nav-item {{ request()->routeIs('admin.my-school*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.my-school') }}">
+                <i class="fas fa-fw fa-school"></i>
+                <span>My School</span>
+            </a>
+        </li>
 
-            <hr class="sidebar-divider">
-
-            <!-- School Settings -->
-            <div class="sidebar-heading">Settings</div>
-            <ul class="navbar-nav">
-                <!-- My School -->
-                <li class="nav-item {{ request()->routeIs('admin.my-school*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.my-school') }}">
-                        <i class="fas fa-fw fa-school"></i>
-                        <span>My School</span>
-                    </a>
-                </li>
-
-                <!-- Settings -->
-                <li class="nav-item {{ request()->routeIs('admin.settings*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.settings') }}">
-                        <i class="fas fa-fw fa-cog"></i>
-                        <span>Settings</span>
-                    </a>
-                </li>
-            </ul>
-        @endif
+        <!-- Reports -->
+        <li class="nav-item {{ request()->routeIs('admin.reports*') ? 'active' : '' }}">
+            <a class="nav-link" href="{{ route('admin.reports.index') }}">
+                <i class="fas fa-fw fa-chart-area"></i>
+                <span>Reports</span>
+            </a>
+        </li>
+    </ul>
+@endif
+    
 
         <hr class="sidebar-divider d-none d-md-block">
 
