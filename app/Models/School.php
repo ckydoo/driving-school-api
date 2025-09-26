@@ -2,7 +2,7 @@
 // app/Models/School.php - Add these missing methods
 
 namespace App\Models;
-
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -160,6 +160,49 @@ class School extends Model
 
         return $this->subscriptionPackage->hasFeature($feature);
     }
+
+      protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($school) {
+            // Generate slug if not provided
+            if (empty($school->slug)) {
+                $school->slug = static::generateUniqueSlug($school->name);
+            }
+            
+            // Generate invitation code if not provided
+            if (empty($school->invitation_code)) {
+                $school->invitation_code = static::generateUniqueInvitationCode();
+            }
+        });
+
+        static::updating(function ($school) {
+            if ($school->isDirty('name') && empty($school->slug)) {
+                $school->slug = static::generateUniqueSlug($school->name);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug from the school name
+     */
+    private static function generateUniqueSlug($name)
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        
+        $counter = 1;
+        while (static::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+        
+        return $slug;
+    }
+
+  
+
 
     /**
      * Get remaining trial days

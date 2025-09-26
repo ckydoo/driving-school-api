@@ -20,7 +20,8 @@ use App\Http\Controllers\PublicSchoolRegistrationController; // FIXED: Changed t
 use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminSubscriptionPackageController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
-use App\Http\Controllers\School\SchoolSubscriptionController;
+use App\Http\Controllers\Admin\SchoolSubscriptionController;
+
 
 
 // School Registration Routes (add these BEFORE the auth middleware group)
