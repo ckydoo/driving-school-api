@@ -46,7 +46,12 @@ Route::middleware(['auth:sanctum', 'school.member'])->group(function () {
         Route::post('/upload', [SyncController::class, 'upload']);
     });
 });
-
+Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
+    Route::get('/packages', [SubscriptionController::class, 'getPackages']);
+    Route::get('/status', [SubscriptionController::class, 'getSubscriptionStatus']);
+    Route::post('/create-payment-intent', [SubscriptionController::class, 'createPaymentIntent']);
+    Route::post('/confirm-payment', [SubscriptionController::class, 'handleSuccessfulPayment']);
+});
 // Health check (no auth required)
 Route::get('/health', [ProductionSyncController::class, 'health']);
 

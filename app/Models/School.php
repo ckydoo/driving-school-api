@@ -30,6 +30,8 @@ class School extends Model
         'max_students',
         'max_instructors',
         'features',
+        'subscription_package_id',
+
     ];
 
     protected $attributes = [
@@ -264,4 +266,56 @@ class School extends Model
 
         return $code;
     }
+
+    // Add relationship
+public function subscriptionPackage()
+{
+    return $this->belongsTo(SubscriptionPackage::class);
+}
+
+// Update trial initialization
+public function initializeTrial()
+{
+    $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
+    
+    $this->update([
+        'subscription_status' => 'trial',
+        'subscription_package_id' => $trialPackage->id,
+        'trial_ends_at' => now()->addDays($trialPackage->trial_days),
+        'subscription_started_at' => now(),
+    ]);
+}
+
+// Check feature access based on package
+public function canAccessFeature($feature)
+{
+    if (!$this->subscriptionPackage) {
+        return false;
+    }
+
+    return $this->subscriptionPackage->hasFeature($feature);
+}
+
+// Check limits
+public function hasReachedLimit($type)
+{
+    if (!$this->subscriptionPackage) {
+        return true;
+    }
+
+    $limit = $this->subscriptionPackage->getLimit($type);
+    
+    if ($limit === -1) { // Unlimited
+        return false;
+    }
+
+    $current = match($type) {
+        'max_students' => $this->users()->where('role', 'student')->count(),
+        'max_instructors' => $this->users()->where('role', 'instructor')->count(),
+        'max_vehicles' => $this->vehicles()->count(),
+        default => 0
+    };
+
+    return $current >= $limit;
+}
 }

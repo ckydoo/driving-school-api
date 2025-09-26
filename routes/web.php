@@ -33,7 +33,14 @@ Route::post('/register', [PublicSchoolRegistrationController::class, 'register']
 Route::get('/school-register', function () {
     return redirect('/register', 301);
 });
-
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin/subscription-packages')->group(function () {
+    Route::get('/', [SubscriptionPackageController::class, 'index']);
+    Route::get('/create', [SubscriptionPackageController::class, 'create']);
+    Route::post('/', [SubscriptionPackageController::class, 'store']);
+    Route::get('/{package}/edit', [SubscriptionPackageController::class, 'edit']);
+    Route::put('/{package}', [SubscriptionPackageController::class, 'update']);
+    Route::delete('/{package}', [SubscriptionPackageController::class, 'destroy']);
+});
 // === LANDING PAGES ===
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/features', [LandingController::class, 'features'])->name('features');
