@@ -337,7 +337,17 @@
             Already have an account?
             <a href="{{ route('login') }}">Sign in here</a>
         </div>
+        <br>
+        <div class="footer-text text-center">
+                <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+                <p>
+                    <a href="{{ url('/') }}">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Website
+                    </a>
+                </p>
+            </div>
     </div>
+
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

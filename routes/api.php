@@ -11,7 +11,8 @@ use App\Http\Controllers\Api\{
     InvoiceController,
     PaymentController,
     SyncController,
-    ProductionSyncController
+    ProductionSyncController,
+    SubscriptionController
 };
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;

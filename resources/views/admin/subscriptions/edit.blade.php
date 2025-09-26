@@ -1,13 +1,14 @@
+{{-- resources/views/admin/subscriptions/edit.blade.php --}}
 @extends('admin.layouts.app')
 
-@section('title', 'Edit Subscription')
+@section('title', 'Edit Subscription: ' . $subscription->name)
 
 @section('content')
 <div class="container-fluid">
     <!-- Page Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-edit"></i> Edit Subscription
+            <i class="fas fa-edit"></i> Edit Subscription: {{ $subscription->name }}
         </h1>
         <div>
             <a href="{{ route('admin.subscriptions.show', $subscription) }}" class="btn btn-info btn-sm">
@@ -19,7 +20,6 @@
         </div>
     </div>
 
-    <!-- Error Display -->
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show">
             <i class="fas fa-exclamation-triangle"></i>
@@ -29,166 +29,84 @@
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="fas fa-check-circle"></i> {{ session('success') }}
         </div>
     @endif
 
     <div class="row">
         <!-- Edit Form -->
         <div class="col-lg-8">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-school"></i> School Information
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ route('admin.subscriptions.update', $subscription) }}" id="editSubscriptionForm">
-                        @csrf
-                        @method('PUT')
-                        
-                        <!-- Basic School Information -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary mb-3">
-                                    <i class="fas fa-info-circle"></i> Basic Information
-                                </h6>
-                            </div>
+            <form method="POST" action="{{ route('admin.subscriptions.update', $subscription) }}">
+                @csrf
+                @method('PUT')
+                
+                <!-- Basic School Information -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-school"></i> School Information
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="name" class="form-label">
-                                        School Name <span class="text-danger">*</span>
-                                    </label>
+                                    <label for="name" class="font-weight-bold">School Name <span class="text-danger">*</span></label>
                                     <input type="text" 
                                            class="form-control @error('name') is-invalid @enderror" 
                                            id="name" 
                                            name="name" 
-                                           value="{{ old('name', $subscription->name) }}"
-                                           required
-                                           maxlength="255">
+                                           value="{{ old('name', $subscription->name) }}" 
+                                           required>
                                     @error('name')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
+                            
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="email" class="form-label">
-                                        Email Address <span class="text-danger">*</span>
-                                    </label>
+                                    <label for="email" class="font-weight-bold">Email <span class="text-danger">*</span></label>
                                     <input type="email" 
                                            class="form-control @error('email') is-invalid @enderror" 
                                            id="email" 
                                            name="email" 
-                                           value="{{ old('email', $subscription->email) }}"
-                                           required
-                                           maxlength="255">
+                                           value="{{ old('email', $subscription->email) }}" 
+                                           required>
                                     @error('email')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
                         </div>
-
-                        <div class="row mb-4">
+                        
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="phone" class="form-label">Phone Number</label>
-                                    <input type="tel" 
+                                    <label for="phone" class="font-weight-bold">Phone</label>
+                                    <input type="text" 
                                            class="form-control @error('phone') is-invalid @enderror" 
                                            id="phone" 
                                            name="phone" 
-                                           value="{{ old('phone', $subscription->phone) }}"
-                                           maxlength="20"
-                                           placeholder="+1 (555) 123-4567">
+                                           value="{{ old('phone', $subscription->phone) }}">
                                     @error('phone')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
+                            
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="subscription_status" class="form-label">
-                                        Subscription Status <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-control @error('subscription_status') is-invalid @enderror" 
-                                            id="subscription_status" 
-                                            name="subscription_status"
-                                            required>
-                                        <option value="">Select Status</option>
-                                        <option value="trial" {{ old('subscription_status', $subscription->subscription_status) === 'trial' ? 'selected' : '' }}>
-                                            Trial
-                                        </option>
-                                        <option value="active" {{ old('subscription_status', $subscription->subscription_status) === 'active' ? 'selected' : '' }}>
-                                            Active
-                                        </option>
-                                        <option value="suspended" {{ old('subscription_status', $subscription->subscription_status) === 'suspended' ? 'selected' : '' }}>
-                                            Suspended
-                                        </option>
-                                        <option value="expired" {{ old('subscription_status', $subscription->subscription_status) === 'expired' ? 'selected' : '' }}>
-                                            Expired
-                                        </option>
-                                    </select>
-                                    @error('subscription_status')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <div class="form-group">
-                                    <label for="address" class="form-label">Address</label>
-                                    <textarea class="form-control @error('address') is-invalid @enderror" 
-                                              id="address" 
-                                              name="address" 
-                                              rows="3"
-                                              maxlength="500"
-                                              placeholder="Enter school address">{{ old('address', $subscription->address) }}</textarea>
-                                    @error('address')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Subscription Settings -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary mb-3">
-                                    <i class="fas fa-calendar-alt"></i> Subscription Settings
-                                </h6>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="subscription_expires_at" class="form-label">Expiration Date</label>
-                                    <input type="datetime-local" 
-                                           class="form-control @error('subscription_expires_at') is-invalid @enderror" 
-                                           id="subscription_expires_at" 
-                                           name="subscription_expires_at" 
-                                           value="{{ old('subscription_expires_at', $subscription->subscription_expires_at ? $subscription->subscription_expires_at->format('Y-m-d\TH:i') : '') }}">
-                                    <small class="form-text text-muted">Leave empty for no expiration</small>
-                                    @error('subscription_expires_at')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="status" class="form-label">Account Status</label>
-                                    <select class="form-control @error('status') is-invalid @enderror" 
-                                            id="status" 
-                                            name="status">
-                                        <option value="active" {{ old('status', $subscription->status ?? 'active') === 'active' ? 'selected' : '' }}>
-                                            Active
-                                        </option>
-                                        <option value="inactive" {{ old('status', $subscription->status ?? 'active') === 'inactive' ? 'selected' : '' }}>
-                                            Inactive
-                                        </option>
-                                        <option value="pending" {{ old('status', $subscription->status ?? 'active') === 'pending' ? 'selected' : '' }}>
-                                            Pending
-                                        </option>
+                                    <label for="status" class="font-weight-bold">School Status</label>
+                                    <select class="form-control @error('status') is-invalid @enderror" id="status" name="status">
+                                        <option value="active" {{ old('status', $subscription->status) === 'active' ? 'selected' : '' }}>Active</option>
+                                        <option value="inactive" {{ old('status', $subscription->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                        <option value="suspended" {{ old('status', $subscription->status) === 'suspended' ? 'selected' : '' }}>Suspended</option>
                                     </select>
                                     @error('status')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -196,319 +114,328 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="form-group">
+                            <label for="address" class="font-weight-bold">Address</label>
+                            <textarea class="form-control @error('address') is-invalid @enderror" 
+                                      id="address" 
+                                      name="address" 
+                                      rows="3">{{ old('address', $subscription->address) }}</textarea>
+                            @error('address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
 
-                        <!-- Advanced Settings -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-primary mb-3">
-                                    <i class="fas fa-cogs"></i> Advanced Settings
-                                </h6>
-                            </div>
-                            <div class="col-12">
+                <!-- Subscription Package Assignment -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-box"></i> Subscription Package
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="settings" class="form-label">Custom Settings (JSON)</label>
-                                    <textarea class="form-control @error('settings') is-invalid @enderror" 
-                                              id="settings" 
-                                              name="settings" 
-                                              rows="4"
-                                              placeholder='{"max_users": 100, "features": ["reports", "analytics"]}'
-                                              style="font-family: monospace;">{{ old('settings', $subscription->settings ? json_encode($subscription->settings, JSON_PRETTY_PRINT) : '') }}</textarea>
-                                    <small class="form-text text-muted">
-                                        Enter JSON configuration for custom school settings. Leave empty for default settings.
-                                    </small>
-                                    @error('settings')
+                                    <label for="subscription_package_id" class="font-weight-bold">Subscription Package <span class="text-danger">*</span></label>
+                                    <select class="form-control @error('subscription_package_id') is-invalid @enderror" 
+                                            id="subscription_package_id" 
+                                            name="subscription_package_id" 
+                                            required>
+                                        <option value="">Select a package...</option>
+                                        @foreach($packages as $package)
+                                            <option value="{{ $package->id }}" 
+                                                    {{ old('subscription_package_id', $subscription->subscription_package_id) == $package->id ? 'selected' : '' }}
+                                                    data-monthly-price="{{ $package->monthly_price }}"
+                                                    data-yearly-price="{{ $package->yearly_price }}"
+                                                    data-limits="{{ json_encode($package->limits) }}">
+                                                {{ $package->name }} 
+                                                ({{ $package->getFormattedMonthlyPrice() }}/month)
+                                                @if($package->hasYearlyPricing())
+                                                    - {{ $package->getFormattedYearlyPrice() }}/year
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('subscription_package_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="billing_period" class="font-weight-bold">Billing Period</label>
+                                    <select class="form-control @error('billing_period') is-invalid @enderror" 
+                                            id="billing_period" 
+                                            name="billing_period">
+                                        <option value="monthly" {{ old('billing_period', 'monthly') === 'monthly' ? 'selected' : '' }}>Monthly</option>
+                                        <option value="yearly" {{ old('billing_period') === 'yearly' ? 'selected' : '' }}>Yearly</option>
+                                    </select>
+                                    @error('billing_period')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Form Actions -->
-                        <div class="row">
-                            <div class="col-12">
-                                <hr>
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-save"></i> Update Subscription
-                                        </button>
-                                        <button type="reset" class="btn btn-secondary">
-                                            <i class="fas fa-undo"></i> Reset Changes
-                                        </button>
+                        <!-- Package Preview -->
+                        <div id="package-preview" style="display: none;">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Monthly Price:</strong>
+                                        <span id="preview-monthly-price">-</span>
                                     </div>
-                                    <div>
-                                        <a href="{{ route('admin.subscriptions.show', $subscription) }}" class="btn btn-outline-info">
-                                            <i class="fas fa-eye"></i> View Details
-                                        </a>
+                                    <div class="col-md-4">
+                                        <strong>Yearly Price:</strong>
+                                        <span id="preview-yearly-price">-</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Yearly Savings:</strong>
+                                        <span id="preview-savings">-</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-12">
+                                        <strong>Limits:</strong>
+                                        <span id="preview-limits">-</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
-            </div>
+
+                <!-- Subscription Status -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-calendar-alt"></i> Subscription Status
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="subscription_status" class="font-weight-bold">Subscription Status <span class="text-danger">*</span></label>
+                                    <select class="form-control @error('subscription_status') is-invalid @enderror" 
+                                            id="subscription_status" 
+                                            name="subscription_status" 
+                                            required>
+                                        <option value="trial" {{ old('subscription_status', $subscription->subscription_status) === 'trial' ? 'selected' : '' }}>Trial</option>
+                                        <option value="active" {{ old('subscription_status', $subscription->subscription_status) === 'active' ? 'selected' : '' }}>Active</option>
+                                        <option value="suspended" {{ old('subscription_status', $subscription->subscription_status) === 'suspended' ? 'selected' : '' }}>Suspended</option>
+                                        <option value="cancelled" {{ old('subscription_status', $subscription->subscription_status) === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                                        <option value="expired" {{ old('subscription_status', $subscription->subscription_status) === 'expired' ? 'selected' : '' }}>Expired</option>
+                                    </select>
+                                    @error('subscription_status')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="trial_ends_at" class="font-weight-bold">Trial Ends At</label>
+                                    <input type="datetime-local" 
+                                           class="form-control @error('trial_ends_at') is-invalid @enderror" 
+                                           id="trial_ends_at" 
+                                           name="trial_ends_at" 
+                                           value="{{ old('trial_ends_at', $subscription->trial_ends_at ? $subscription->trial_ends_at->format('Y-m-d\TH:i') : '') }}">
+                                    @error('trial_ends_at')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="subscription_expires_at" class="font-weight-bold">Subscription Expires At</label>
+                                    <input type="datetime-local" 
+                                           class="form-control @error('subscription_expires_at') is-invalid @enderror" 
+                                           id="subscription_expires_at" 
+                                           name="subscription_expires_at" 
+                                           value="{{ old('subscription_expires_at', $subscription->subscription_expires_at ? $subscription->subscription_expires_at->format('Y-m-d\TH:i') : '') }}">
+                                    @error('subscription_expires_at')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="monthly_fee" class="font-weight-bold">Monthly Fee ($)</label>
+                                    <input type="number" 
+                                           class="form-control @error('monthly_fee') is-invalid @enderror" 
+                                           id="monthly_fee" 
+                                           name="monthly_fee" 
+                                           step="0.01" 
+                                           min="0" 
+                                           value="{{ old('monthly_fee', $subscription->monthly_fee) }}">
+                                    <small class="form-text text-muted">Leave empty to auto-calculate from package</small>
+                                    @error('monthly_fee')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card shadow mb-4">
+                    <div class="card-body">
+                        <div class="form-group mb-0">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Subscription
+                            </button>
+                            <a href="{{ route('admin.subscriptions.show', $subscription) }}" class="btn btn-info">
+                                <i class="fas fa-eye"></i> View Details
+                            </a>
+                            <a href="{{ route('admin.subscriptions.index') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
 
-        <!-- Information Sidebar -->
+        <!-- Current Usage Sidebar -->
         <div class="col-lg-4">
-            <!-- Current Information -->
+            <!-- Current Package Info -->
+            @if($subscription->subscriptionPackage)
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-info-circle"></i> Current Information
-                    </h6>
+                    <h6 class="m-0 font-weight-bold text-primary">Current Package</h6>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <strong>School ID:</strong><br>
-                        <code>{{ $subscription->id }}</code>
-                    </div>
-                    <div class="mb-3">
-                        <strong>Current Status:</strong><br>
-                        @php
-                            $statusClass = match($subscription->subscription_status) {
-                                'active' => 'success',
-                                'trial' => 'info',
-                                'suspended' => 'warning',
-                                'expired' => 'danger',
-                                default => 'secondary'
-                            };
-                        @endphp
-                        <span class="badge badge-{{ $statusClass }}">
-                            {{ ucfirst($subscription->subscription_status) }}
-                        </span>
-                    </div>
-                    <div class="mb-3">
-                        <strong>Created:</strong><br>
-                        {{ $subscription->created_at->format('M d, Y \a\t H:i') }}
-                        <br>
-                        <small class="text-muted">{{ $subscription->created_at->diffForHumans() }}</small>
-                    </div>
-                    <div class="mb-3">
-                        <strong>Last Updated:</strong><br>
-                        {{ $subscription->updated_at->format('M d, Y \a\t H:i') }}
-                        <br>
-                        <small class="text-muted">{{ $subscription->updated_at->diffForHumans() }}</small>
-                    </div>
-                    <div>
-                        <strong>Total Users:</strong><br>
-                        {{ $subscription->users->count() }} users
+                    <h5>{{ $subscription->subscriptionPackage->name }}</h5>
+                    <p class="text-muted">{{ $subscription->subscriptionPackage->description }}</p>
+                    
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="border-right">
+                                <div class="h6 mb-0">{{ $subscription->getCurrentUsage('max_students') }}</div>
+                                <small class="text-muted">Students</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-right">
+                                <div class="h6 mb-0">{{ $subscription->getCurrentUsage('max_instructors') }}</div>
+                                <small class="text-muted">Instructors</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="h6 mb-0">{{ $subscription->getCurrentUsage('max_vehicles') }}</div>
+                            <small class="text-muted">Vehicles</small>
+                        </div>
                     </div>
                 </div>
             </div>
+            @endif
 
             <!-- Quick Actions -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-bolt"></i> Quick Actions
-                    </h6>
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button type="button" 
-                                class="btn btn-outline-success btn-sm"
-                                onclick="extendSubscription()">
-                            <i class="fas fa-calendar-plus"></i> Extend Subscription
-                        </button>
+                        @if($subscription->subscriptionPackage)
+                        <form method="POST" action="{{ route('admin.subscriptions.upgrade-package', $subscription) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-success btn-sm btn-block"
+                                    onclick="return confirm('Upgrade this school to a higher tier package?')">
+                                <i class="fas fa-arrow-up"></i> Quick Upgrade
+                            </button>
+                        </form>
+                        @endif
                         
-                        <button type="button" 
-                                class="btn btn-outline-info btn-sm"
-                                onclick="resetExpiration()">
-                            <i class="fas fa-calendar-times"></i> Remove Expiration
-                        </button>
+                        <form method="POST" action="{{ route('admin.subscriptions.reset-trial', $subscription) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-warning btn-sm btn-block"
+                                    onclick="return confirm('Reset trial period for this school?')">
+                                <i class="fas fa-redo"></i> Reset Trial
+                            </button>
+                        </form>
                         
-                        <button type="button" 
-                                class="btn btn-outline-warning btn-sm"
-                                onclick="copySettings()">
-                            <i class="fas fa-copy"></i> Copy Settings
-                        </button>
-                        
-                        <button type="button" 
-                                class="btn btn-outline-secondary btn-sm"
-                                onclick="validateSettings()">
-                            <i class="fas fa-check"></i> Validate JSON
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Status Guide -->
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-question-circle"></i> Status Guide
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="mb-2">
-                        <span class="badge badge-info">Trial</span>
-                        <small class="text-muted d-block">Limited access, evaluation period</small>
-                    </div>
-                    <div class="mb-2">
-                        <span class="badge badge-success">Active</span>
-                        <small class="text-muted d-block">Full access to all features</small>
-                    </div>
-                    <div class="mb-2">
-                        <span class="badge badge-warning">Suspended</span>
-                        <small class="text-muted d-block">Temporary access restriction</small>
-                    </div>
-                    <div>
-                        <span class="badge badge-danger">Expired</span>
-                        <small class="text-muted d-block">Subscription has ended</small>
+                        <form method="POST" action="{{ route('admin.subscriptions.toggle-status', $subscription) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-{{ $subscription->subscription_status === 'active' ? 'secondary' : 'success' }} btn-sm btn-block">
+                                <i class="fas fa-{{ $subscription->subscription_status === 'active' ? 'pause' : 'play' }}"></i> 
+                                {{ $subscription->subscription_status === 'active' ? 'Suspend' : 'Activate' }}
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+@endsection
 
 @push('scripts')
 <script>
-function extendSubscription() {
-    const currentDate = document.getElementById('subscription_expires_at').value;
-    let newDate;
-    
-    if (currentDate) {
-        newDate = new Date(currentDate);
-        newDate.setMonth(newDate.getMonth() + 1);
-    } else {
-        newDate = new Date();
-        newDate.setMonth(newDate.getMonth() + 1);
-    }
-    
-    document.getElementById('subscription_expires_at').value = newDate.toISOString().slice(0, 16);
-}
+document.addEventListener('DOMContentLoaded', function() {
+    const packageSelect = document.getElementById('subscription_package_id');
+    const billingSelect = document.getElementById('billing_period');
+    const monthlyFeeInput = document.getElementById('monthly_fee');
+    const preview = document.getElementById('package-preview');
 
-function resetExpiration() {
-    if (confirm('Are you sure you want to remove the expiration date? This will give the school unlimited access.')) {
-        document.getElementById('subscription_expires_at').value = '';
-    }
-}
+    function updatePackagePreview() {
+        const selectedOption = packageSelect.options[packageSelect.selectedIndex];
+        
+        if (selectedOption.value) {
+            const monthlyPrice = parseFloat(selectedOption.getAttribute('data-monthly-price'));
+            const yearlyPrice = parseFloat(selectedOption.getAttribute('data-yearly-price'));
+            const limits = JSON.parse(selectedOption.getAttribute('data-limits') || '{}');
+            const billingPeriod = billingSelect.value;
 
-function copySettings() {
-    const settings = document.getElementById('settings').value;
-    if (settings) {
-        navigator.clipboard.writeText(settings).then(function() {
-            alert('Settings copied to clipboard!');
-        });
-    } else {
-        alert('No settings to copy.');
-    }
-}
+            // Update preview
+            document.getElementById('preview-monthly-price').textContent = '$' + monthlyPrice.toFixed(2);
+            document.getElementById('preview-yearly-price').textContent = yearlyPrice ? '$' + yearlyPrice.toFixed(2) : 'Not available';
+            
+            if (yearlyPrice && monthlyPrice) {
+                const yearlyEquivalent = monthlyPrice * 12;
+                const savings = yearlyEquivalent - yearlyPrice;
+                const discountPercent = Math.round((savings / yearlyEquivalent) * 100);
+                document.getElementById('preview-savings').textContent = savings > 0 ? 
+                    '$' + savings.toFixed(2) + ' (' + discountPercent + '% off)' : 'No savings';
+            } else {
+                document.getElementById('preview-savings').textContent = 'No yearly option';
+            }
 
-function validateSettings() {
-    const settings = document.getElementById('settings').value.trim();
-    
-    if (!settings) {
-        alert('Settings field is empty.');
-        return;
-    }
-    
-    try {
-        JSON.parse(settings);
-        alert('JSON is valid!');
-        document.getElementById('settings').classList.remove('is-invalid');
-        document.getElementById('settings').classList.add('is-valid');
-    } catch (e) {
-        alert('Invalid JSON: ' + e.message);
-        document.getElementById('settings').classList.remove('is-valid');
-        document.getElementById('settings').classList.add('is-invalid');
-    }
-}
+            // Update limits
+            let limitsText = '';
+            Object.keys(limits).forEach(key => {
+                const value = limits[key];
+                const displayValue = value === -1 ? 'Unlimited' : value;
+                limitsText += key.replace('max_', '').replace('_', ' ') + ': ' + displayValue + ' ';
+            });
+            document.getElementById('preview-limits').textContent = limitsText;
 
-// Auto-save draft functionality
-let autoSaveTimeout;
-document.getElementById('editSubscriptionForm').addEventListener('input', function() {
-    clearTimeout(autoSaveTimeout);
-    autoSaveTimeout = setTimeout(function() {
-        // In production, save draft to localStorage or send to server
-        console.log('Auto-saving draft...');
-    }, 2000);
-});
+            // Auto-update monthly fee
+            const selectedPrice = billingPeriod === 'yearly' && yearlyPrice ? 
+                (yearlyPrice / 12) : monthlyPrice;
+            monthlyFeeInput.value = selectedPrice.toFixed(2);
 
-// Form validation
-document.getElementById('editSubscriptionForm').addEventListener('submit', function(e) {
-    const settings = document.getElementById('settings').value.trim();
-    
-    if (settings) {
-        try {
-            JSON.parse(settings);
-        } catch (error) {
-            e.preventDefault();
-            alert('Please fix the JSON settings before submitting.');
-            document.getElementById('settings').focus();
-            return false;
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
         }
     }
-    
-    return true;
-});
 
-// Reset form handler
-document.querySelector('button[type="reset"]').addEventListener('click', function(e) {
-    if (!confirm('Are you sure you want to reset all changes?')) {
-        e.preventDefault();
-    }
+    packageSelect.addEventListener('change', updatePackagePreview);
+    billingSelect.addEventListener('change', updatePackagePreview);
+
+    // Initial update
+    updatePackagePreview();
 });
 </script>
 @endpush
-
-@push('styles')
-<style>
-.form-label {
-    font-weight: 600;
-    color: #5a5c69;
-}
-
-.form-control:focus {
-    border-color: #4e73df;
-    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
-}
-
-.is-valid {
-    border-color: #1cc88a !important;
-}
-
-.is-invalid {
-    border-color: #e74a3b !important;
-}
-
-.card {
-    transition: box-shadow 0.15s ease-in-out;
-}
-
-.card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-}
-
-.badge {
-    font-size: 0.75em;
-}
-
-code {
-    color: #6c757d;
-    background-color: #f8f9fa;
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.25rem;
-}
-
-.d-grid .btn {
-    text-align: left;
-}
-
-textarea[style*="font-family: monospace"] {
-    font-size: 0.875rem;
-    line-height: 1.4;
-}
-
-.text-danger {
-    color: #e74a3b !important;
-}
-
-.form-text {
-    font-size: 0.875em;
-}
-</style>
-@endpush
-@endsection

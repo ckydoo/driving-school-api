@@ -269,13 +269,23 @@
                     </a>
                 </li>
 
-                <!-- Subscriptions -->
-                <li class="nav-item {{ request()->routeIs('admin.subscriptions*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('admin.subscriptions.index') }}">
-                        <i class="fas fa-fw fa-credit-card"></i>
-                        <span>Subscriptions</span>
-                    </a>
-                </li>
+                @if(Auth::user()->isSuperAdmin())
+                    <!-- Subscriptions -->
+                    <li class="nav-item {{ request()->routeIs('admin.subscriptions*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('admin.subscriptions.index') }}">
+                            <i class="fas fa-fw fa-credit-card"></i>
+                            <span>Subscriptions</span>
+                        </a>
+                    </li>
+
+                    <!-- Subscription Packages - ADD THIS -->
+                    <li class="nav-item {{ request()->routeIs('admin.subscription-packages*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('admin.subscription-packages.index') }}">
+                            <i class="fas fa-fw fa-boxes"></i>
+                            <span>Subscription Packages</span>
+                        </a>
+                    </li>
+                @endif
 
                 <!-- System Settings -->
                 <li class="nav-item {{ request()->routeIs('admin.system.settings*') ? 'active' : '' }}">

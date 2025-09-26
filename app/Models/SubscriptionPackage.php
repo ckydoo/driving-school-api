@@ -1,5 +1,5 @@
 <?php
-// app/Models/SubscriptionPackage.php
+// app/Models/SubscriptionPackage.php - FIXED VERSION
 
 namespace App\Models;
 
@@ -52,11 +52,23 @@ class SubscriptionPackage extends Model
     // Helper methods
     public function getYearlyDiscount()
     {
-        if (!$this->yearly_price || !$this->monthly_price) {
+        // FIXED: Add proper validation to prevent division by zero
+        if (!$this->yearly_price || !$this->monthly_price || $this->monthly_price <= 0) {
             return 0;
         }
         
         $yearlyMonthlyEquivalent = $this->monthly_price * 12;
+        
+        // Additional safety check
+        if ($yearlyMonthlyEquivalent <= 0) {
+            return 0;
+        }
+        
+        // Make sure yearly price is less than monthly equivalent for a valid discount
+        if ($this->yearly_price >= $yearlyMonthlyEquivalent) {
+            return 0;
+        }
+        
         return round((($yearlyMonthlyEquivalent - $this->yearly_price) / $yearlyMonthlyEquivalent) * 100);
     }
 
@@ -73,5 +85,130 @@ class SubscriptionPackage extends Model
     public function isUnlimited($limit)
     {
         return ($this->limits[$limit] ?? 0) === -1;
+    }
+
+    // ADDITIONAL HELPER METHODS
+
+    /**
+     * Get formatted monthly price
+     */
+    public function getFormattedMonthlyPrice()
+    {
+        return '$' . number_format($this->monthly_price, 2);
+    }
+
+    /**
+     * Get formatted yearly price
+     */
+    public function getFormattedYearlyPrice()
+    {
+        if (!$this->yearly_price) {
+            return null;
+        }
+        return '$' . number_format($this->yearly_price, 2);
+    }
+
+    /**
+     * Get yearly savings amount
+     */
+    public function getYearlySavings()
+    {
+        if (!$this->yearly_price || !$this->monthly_price || $this->monthly_price <= 0) {
+            return 0;
+        }
+        
+        $yearlyMonthlyEquivalent = $this->monthly_price * 12;
+        
+        if ($yearlyMonthlyEquivalent <= 0 || $this->yearly_price >= $yearlyMonthlyEquivalent) {
+            return 0;
+        }
+        
+        return $yearlyMonthlyEquivalent - $this->yearly_price;
+    }
+
+    /**
+     * Get formatted yearly savings
+     */
+    public function getFormattedYearlySavings()
+    {
+        $savings = $this->getYearlySavings();
+        return $savings > 0 ? '$' . number_format($savings, 2) : '$0.00';
+    }
+
+    /**
+     * Check if package has yearly pricing
+     */
+    public function hasYearlyPricing()
+    {
+        return $this->yearly_price && $this->yearly_price > 0;
+    }
+
+    /**
+     * Get price for specific billing period
+     */
+    public function getPriceForPeriod($billingPeriod = 'monthly')
+    {
+        return $billingPeriod === 'yearly' && $this->hasYearlyPricing() 
+            ? $this->yearly_price 
+            : $this->monthly_price;
+    }
+
+    /**
+     * Get formatted price for specific billing period
+     */
+    public function getFormattedPriceForPeriod($billingPeriod = 'monthly')
+    {
+        $price = $this->getPriceForPeriod($billingPeriod);
+        return '$' . number_format($price, 2);
+    }
+
+    /**
+     * Check if this is a free/trial package
+     */
+    public function isFree()
+    {
+        return $this->monthly_price == 0;
+    }
+
+    /**
+     * Get limit description for display
+     */
+    public function getLimitDescription($limitType)
+    {
+        $limit = $this->getLimit($limitType);
+        
+        if ($limit === -1) {
+            return 'Unlimited';
+        }
+        
+        return number_format($limit);
+    }
+
+    /**
+     * Get all features as formatted list
+     */
+    public function getFormattedFeatures()
+    {
+        return $this->features ?? [];
+    }
+
+    /**
+     * Check if package can accommodate given usage
+     */
+    public function canAccommodate($students = 0, $instructors = 0, $vehicles = 0)
+    {
+        if (!$this->isUnlimited('max_students') && $students > $this->getLimit('max_students')) {
+            return false;
+        }
+        
+        if (!$this->isUnlimited('max_instructors') && $instructors > $this->getLimit('max_instructors')) {
+            return false;
+        }
+        
+        if (!$this->isUnlimited('max_vehicles') && $vehicles > $this->getLimit('max_vehicles')) {
+            return false;
+        }
+        
+        return true;
     }
 }

@@ -352,7 +352,7 @@
                 loginForm.addEventListener('submit', function() {
                     loginBtn.classList.add('btn-loading');
                     spinner.classList.remove('d-none');
-                    buttonText.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing in...';
+                    buttonText.innerHTML = '<i class=" me-2"></i>Signing in...';
                 });
             }
 

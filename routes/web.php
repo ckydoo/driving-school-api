@@ -18,7 +18,9 @@ use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\PublicSchoolRegistrationController; // FIXED: Changed to PublicSchoolRegistrationController
 use App\Http\Controllers\Admin\AdminScheduleController;
+use App\Http\Controllers\Admin\AdminSubscriptionPackageController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
+
 
 // School Registration Routes (add these BEFORE the auth middleware group)
 Route::get('/register', [PublicSchoolRegistrationController::class, 'showRegistrationForm'])
@@ -33,14 +35,7 @@ Route::post('/register', [PublicSchoolRegistrationController::class, 'register']
 Route::get('/school-register', function () {
     return redirect('/register', 301);
 });
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin/subscription-packages')->group(function () {
-    Route::get('/', [SubscriptionPackageController::class, 'index']);
-    Route::get('/create', [SubscriptionPackageController::class, 'create']);
-    Route::post('/', [SubscriptionPackageController::class, 'store']);
-    Route::get('/{package}/edit', [SubscriptionPackageController::class, 'edit']);
-    Route::put('/{package}', [SubscriptionPackageController::class, 'update']);
-    Route::delete('/{package}', [SubscriptionPackageController::class, 'destroy']);
-});
+
 // === LANDING PAGES ===
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/features', [LandingController::class, 'features'])->name('features');
@@ -70,8 +65,85 @@ Route::middleware(['auth'])->group(function () {
 
 // === ALL ADMIN ROUTES (Super Admin gets unlimited access, School Admin gets restricted) ===
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    
+   Route::middleware('super_admin')->group(function () {
+        
+        // === SUBSCRIPTION MANAGEMENT WITH BILLING ===
+        Route::resource('subscriptions', AdminSubscriptionController::class);
+        
+        // Package assignment routes
+        Route::post('subscriptions/{subscription}/assign-package', 
+                    [AdminSubscriptionController::class, 'assignPackage'])
+             ->name('subscriptions.assign-package');
+        
+        Route::post('subscriptions/{subscription}/upgrade-package', 
+                    [AdminSubscriptionController::class, 'upgradePackage'])
+             ->name('subscriptions.upgrade-package');
+        
+        Route::post('subscriptions/{subscription}/reset-trial', 
+                    [AdminSubscriptionController::class, 'resetTrial'])
+             ->name('subscriptions.reset-trial');
+        
+        Route::post('subscriptions/{subscription}/cancel', 
+                    [AdminSubscriptionController::class, 'cancel'])
+             ->name('subscriptions.cancel');
+        
+        Route::post('subscriptions/{subscription}/reactivate', 
+                    [AdminSubscriptionController::class, 'reactivate'])
+             ->name('subscriptions.reactivate');
+        
+        Route::post('subscriptions/{subscription}/toggle-status', 
+                    [AdminSubscriptionController::class, 'toggleStatus'])
+             ->name('subscriptions.toggle-status');
+        
+        // Bulk operations
+        Route::post('subscriptions/bulk-assign-package', 
+                    [AdminSubscriptionController::class, 'bulkAssignPackage'])
+             ->name('subscriptions.bulk-assign-package');
 
-    // === DASHBOARD ROUTES ===
+        // Export
+        Route::get('subscriptions-export', 
+                   [AdminSubscriptionController::class, 'exportSubscriptions'])
+            ->name('subscriptions.export');
+
+        // === SUBSCRIPTION BILLING ROUTES ===
+        Route::get('subscriptions/{subscription}/billing', 
+                   [AdminSubscriptionController::class, 'billing'])
+            ->name('subscriptions.billing');
+        
+        Route::post('subscriptions/{subscription}/generate-invoice', 
+                    [AdminSubscriptionController::class, 'generateInvoice'])
+             ->name('subscriptions.generate-invoice');
+        
+        Route::post('subscriptions/{subscription}/create-payment', 
+                    [AdminSubscriptionController::class, 'createPayment'])
+             ->name('subscriptions.create-payment');
+        
+        // Invoice management
+        Route::post('subscription-invoices/{invoice}/mark-paid', 
+                    [AdminSubscriptionController::class, 'markInvoicePaid'])
+             ->name('subscription-invoices.mark-paid');
+        
+        Route::post('subscription-invoices/{invoice}/cancel', 
+                    [AdminSubscriptionController::class, 'cancelInvoice'])
+             ->name('subscription-invoices.cancel');
+        
+        // Payment management
+        Route::post('subscription-payments/{payment}/refund', 
+                    [AdminSubscriptionController::class, 'processRefund'])
+             ->name('subscription-payments.refund');
+
+        // === SUBSCRIPTION PACKAGE MANAGEMENT ===
+        Route::resource('subscription-packages', AdminSubscriptionPackageController::class, [
+            'parameters' => ['subscription-packages' => 'package']
+        ]);
+        
+        Route::post('subscription-packages/{package}/toggle-status', 
+                    [AdminSubscriptionPackageController::class, 'toggleStatus'])
+             ->name('subscription-packages.toggle-status');
+    
+
+    });    // === DASHBOARD ROUTES ===
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard.index');
     Route::get('/super', [AdminController::class, 'superAdminDashboard'])->name('super.dashboard');
@@ -124,10 +196,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('payments/{payment}/verify', [AdminPaymentController::class, 'verify'])->name('payments.verify');
     Route::resource('payments', AdminPaymentController::class);
 
-    // === SUBSCRIPTION MANAGEMENT ===
-    Route::post('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
-    Route::post('subscriptions/{subscription}/reactivate', [AdminSubscriptionController::class, 'reactivate'])->name('subscriptions.reactivate');
-    Route::resource('subscriptions', AdminSubscriptionController::class);
 
     // === REPORTS ===
     Route::prefix('reports')->name('reports.')->group(function () {

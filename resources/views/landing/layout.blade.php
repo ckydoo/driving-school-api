@@ -296,12 +296,12 @@
                     </li>
                     {{-- <li class="nav-item">
                         <a class="nav-link" href="{{ route('about') }}">About</a>
-                    </li> --}}
+                     </li> --}}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('contact') }}">Contact</a>
                     </li>
                     <li class="nav-item ms-3">
-                        <a class="btn btn-outline-primary" href="{{ route('school.register.form') }}">
+                        <a class="btn btn-outline-primary" href="{{ route('login') }}">
                             <i class="fas fa-sign-in-alt"></i> Get Started
                         </a>
                     </li>

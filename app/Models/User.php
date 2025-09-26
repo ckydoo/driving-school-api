@@ -42,6 +42,27 @@ class User extends Authenticatable
     ];
 
     // === RELATIONSHIPS ===
+    // In School model or registration controller
+public function createStripeCustomer()
+{
+    if ($this->stripe_customer_id) {
+        return $this->stripe_customer_id;
+    }
+
+    \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+    
+    $customer = \Stripe\Customer::create([
+        'email' => $this->email,
+        'name' => $this->name,
+        'metadata' => [
+            'school_id' => $this->id,
+        ]
+    ]);
+    
+    $this->update(['stripe_customer_id' => $customer->id]);
+    
+    return $customer->id;
+}
 
     public function school()
     {

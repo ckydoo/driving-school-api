@@ -1,15 +1,15 @@
 <?php
+// app/Models/School.php - Add these missing methods
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class School extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'name',
         'slug',
@@ -17,6 +17,7 @@ class School extends Model
         'phone',
         'address',
         'city',
+        'license_number',
         'country',
         'website',
         'start_time',
@@ -25,297 +26,600 @@ class School extends Model
         'invitation_code',
         'status',
         'subscription_status',
+        'subscription_package_id',
+        'stripe_customer_id',
         'trial_ends_at',
+        'subscription_expires_at',
+        'subscription_started_at',
         'monthly_fee',
         'max_students',
         'max_instructors',
-        'features',
-        'subscription_package_id',
-
+        'features'
     ];
 
-    protected $attributes = [
-        'operating_days' => '["Mon", "Tue", "Wed", "Thur", "Fri", "Str"]',
-    ];
-    
     protected $casts = [
-        'trial_ends_at' => 'datetime',
         'operating_days' => 'array',
         'features' => 'array',
+        'trial_ends_at' => 'datetime',
+        'subscription_expires_at' => 'datetime',
+        'subscription_started_at' => 'datetime',
         'monthly_fee' => 'decimal:2',
-        'max_students' => 'integer',
-        'max_instructors' => 'integer',
     ];
 
-    // === RELATIONSHIPS ===
-
-    /**
-     * Users belonging to this school
-     */
-    public function users()
+    // RELATIONSHIPS
+    public function users(): HasMany
     {
         return $this->hasMany(User::class);
     }
 
-    /**
-     * Students belonging to this school
-     */
-    public function students()
+    public function subscriptionPackage(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPackage::class);
+    }
+
+    public function students(): HasMany
     {
         return $this->hasMany(User::class)->where('role', 'student');
     }
 
-    /**
-     * Instructors belonging to this school
-     */
-    public function instructors()
+    public function instructors(): HasMany
     {
         return $this->hasMany(User::class)->where('role', 'instructor');
     }
 
-    /**
-     * Admins belonging to this school
-     */
-    public function admins()
+    public function admins(): HasMany
     {
         return $this->hasMany(User::class)->where('role', 'admin');
     }
 
-    /**
-     * Fleet vehicles belonging to this school
-     */
-    public function fleet()
-    {
-        return $this->hasMany(Fleet::class);
-    }
-
-    /**
-     * Courses offered by this school
-     */
-    public function courses()
+    public function courses(): HasMany
     {
         return $this->hasMany(Course::class);
     }
 
-    /**
-     * Schedules for this school (through users)
-     */
-    public function schedules()
+    public function fleet(): HasMany
     {
-        return $this->hasManyThrough(Schedule::class, User::class, 'school_id', 'student');
+        return $this->hasMany(Fleet::class);
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    // ADD THESE MISSING METHODS:
+
+    /**
+     * Get current usage count for a limit type
+     */
+    public function getCurrentUsage(string $type): int
+    {
+        return match($type) {
+            'max_students' => $this->users()->where('role', 'student')->count(),
+            'max_instructors' => $this->users()->where('role', 'instructor')->count(),
+            'max_vehicles' => $this->fleet()->count(),
+            default => 0
+        };
     }
 
     /**
-     * Invoices for this school (through students)
+     * Get usage percentage for a limit type
      */
-    public function invoices()
+    public function getUsagePercentage(string $type): float
     {
-        return $this->hasManyThrough(Invoice::class, User::class, 'school_id', 'student');
+        if (!$this->subscriptionPackage) {
+            return 100.0;
+        }
+        
+        $limit = $this->subscriptionPackage->getLimit($type);
+        
+        if ($limit === -1) { // Unlimited
+            return 0.0;
+        }
+        
+        if ($limit === 0) {
+            return 100.0;
+        }
+        
+        $current = $this->getCurrentUsage($type);
+        return min(100.0, ($current / $limit) * 100);
     }
 
     /**
-     * Payments for this school (through invoices)
+     * Check if school has reached a specific limit
      */
-    public function payments()
+    public function hasReachedLimit(string $type): bool
     {
-        return $this->hasManyThrough(
-            Payment::class,
-            Invoice::class,
-            'student', // Foreign key on invoices table (student_id)
-            'invoiceId', // Foreign key on payments table
-            'id', // Local key on schools table
-            'id' // Local key on invoices table
-        );
-    }
+        if (!$this->subscriptionPackage) {
+            return true;
+        }
 
-    // === SCOPES ===
+        $limit = $this->subscriptionPackage->getLimit($type);
+        
+        if ($limit === -1) { // Unlimited
+            return false;
+        }
 
-    /**
-     * Scope for active schools
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
+        $current = $this->getCurrentUsage($type);
+        return $current >= $limit;
     }
 
     /**
-     * Scope for schools on trial
+     * Check feature access based on package
      */
-    public function scopeTrial($query)
+    public function canAccessFeature(string $feature): bool
     {
-        return $query->where('subscription_status', 'trial');
-    }
+        if (!$this->subscriptionPackage) {
+            return false;
+        }
 
-    /**
-     * Scope for paid schools
-     */
-    public function scopePaid($query)
-    {
-        return $query->where('subscription_status', 'active');
-    }
-
-    // === ACCESSORS ===
-
-    /**
-     * Check if school is on trial
-     */
-    public function getIsTrialAttribute()
-    {
-        return $this->subscription_status === 'trial';
+        return $this->subscriptionPackage->hasFeature($feature);
     }
 
     /**
      * Get remaining trial days
      */
-    public function getRemainingTrialDaysAttribute()
+    public function getRemainingTrialDaysAttribute(): int
     {
-        if (!$this->is_trial || !$this->trial_ends_at) {
+        if (!$this->trial_ends_at || $this->subscription_status !== 'trial') {
             return 0;
         }
-
-        return max(0, $this->trial_ends_at->diffInDays(now()));
+        
+        $remaining = now()->diffInDays($this->trial_ends_at, false);
+        return max(0, (int) $remaining);
     }
 
     /**
      * Check if trial has expired
      */
-    public function getTrialExpiredAttribute()
+    public function isTrialExpired(): bool
     {
-        return $this->is_trial && $this->trial_ends_at && $this->trial_ends_at->isPast();
-    }
-
-    // === MUTATORS ===
-
-    /**
-     * Automatically generate slug from name
-     */
-    public function setNameAttribute($value)
-    {
-        $this->attributes['name'] = $value;
-        $this->attributes['slug'] = Str::slug($value);
-    }
-
-    // === HELPER METHODS ===
-
-    /**
-     * Get the school's admin user
-     */
-    public function getAdminUser()
-    {
-        return $this->users()->where('role', 'admin')->first();
+        return $this->subscription_status === 'trial' 
+            && $this->trial_ends_at 
+            && $this->trial_ends_at->isPast();
     }
 
     /**
-     * Count total students
+     * Check if subscription has expired
      */
-    public function getTotalStudentsCount()
+    public function isSubscriptionExpired(): bool
     {
-        return $this->students()->count();
+        return $this->subscription_expires_at 
+            && $this->subscription_expires_at->isPast();
     }
 
     /**
-     * Count total instructors
+     * Initialize trial subscription for new school
      */
-    public function getTotalInstructorsCount()
+    public function initializeTrial()
     {
-        return $this->instructors()->count();
+        $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
+        
+        if (!$trialPackage) {
+            // Create a basic trial package if none exists
+            $trialPackage = SubscriptionPackage::create([
+                'name' => 'Trial',
+                'slug' => 'trial',
+                'monthly_price' => 0.00,
+                'yearly_price' => 0.00,
+                'description' => 'Free trial',
+                'features' => ['Basic features'],
+                'limits' => [
+                    'max_students' => 50,
+                    'max_instructors' => 5,
+                    'max_vehicles' => 10
+                ],
+                'trial_days' => 30,
+                'is_active' => true,
+                'sort_order' => 1
+            ]);
+        }
+        
+        $this->update([
+            'subscription_status' => 'trial',
+            'subscription_package_id' => $trialPackage->id,
+            'trial_ends_at' => now()->addDays($trialPackage->trial_days),
+            'subscription_started_at' => now(),
+        ]);
     }
 
     /**
-     * Check if school can add more students
+     * Create Stripe customer if not exists
      */
-    public function canAddStudents()
+    public function createStripeCustomer(): ?string
     {
-        return $this->getTotalStudentsCount() < $this->max_students;
-    }
-
-    /**
-     * Check if school can add more instructors
-     */
-    public function canAddInstructors()
-    {
-        return $this->getTotalInstructorsCount() < $this->max_instructors;
-    }
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($school) {
-            if (empty($school->invitation_code)) {
-                $school->invitation_code = self::generateUniqueInvitationCode($school->name);
-            }
-        });
-    }
-
-    private static function generateUniqueInvitationCode($schoolName)
-    {
-        // Get first 3 letters of each word in school name
-        $words = explode(' ', strtoupper($schoolName));
-        $prefix = '';
-
-        foreach (array_slice($words, 0, 2) as $word) {
-            $prefix .= substr($word, 0, 3);
+        if ($this->stripe_customer_id) {
+            return $this->stripe_customer_id;
         }
 
-        // Add random number
-        do {
-            $suffix = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-            $code = $prefix . $suffix;
-        } while (self::where('invitation_code', $code)->exists());
+        try {
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+            
+            $customer = \Stripe\Customer::create([
+                'email' => $this->email,
+                'name' => $this->name,
+                'metadata' => [
+                    'school_id' => $this->id,
+                ]
+            ]);
+            
+            $this->update(['stripe_customer_id' => $customer->id]);
+            
+            return $customer->id;
+        } catch (\Exception $e) {
+            \Log::error('Failed to create Stripe customer: ' . $e->getMessage());
+            return null;
+        }
+    }
 
+    
+
+    /**
+     * Generate unique invitation code
+     */
+    public static function generateUniqueInvitationCode(): string
+    {
+        $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $numbers = '0123456789';
+        $suffix = '';
+        
+        // Generate 3 letters + 3 numbers
+        for ($i = 0; $i < 3; $i++) {
+            $suffix .= $letters[rand(0, strlen($letters) - 1)];
+        }
+        for ($i = 0; $i < 3; $i++) {
+            $suffix .= $numbers[rand(0, strlen($numbers) - 1)];
+        }
+        
+        $code = 'DS' . $suffix;
+        
+        // Ensure uniqueness
+        while (self::where('invitation_code', $code)->exists()) {
+            // Regenerate if code exists
+            $suffix = '';
+            for ($i = 0; $i < 3; $i++) {
+                $suffix .= $letters[rand(0, strlen($letters) - 1)];
+            }
+            for ($i = 0; $i < 3; $i++) {
+                $suffix .= $numbers[rand(0, strlen($numbers) - 1)];
+            }
+            $code = 'DS' . $suffix;
+        }
+        
         return $code;
     }
 
-    // Add relationship
-public function subscriptionPackage()
+    // EXISTING SCOPES AND METHODS (keep your existing code)
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeTrial($query)
+    {
+        return $query->where('subscription_status', 'trial');
+    }
+
+    public function scopePaid($query)
+    {
+        return $query->where('subscription_status', 'active');
+    }
+    // SUBSCRIPTION BILLING RELATIONSHIPS
+public function subscriptionInvoices(): HasMany
 {
-    return $this->belongsTo(SubscriptionPackage::class);
+    return $this->hasMany(SubscriptionInvoice::class);
 }
 
-// Update trial initialization
-public function initializeTrial()
+public function subscriptionPayments(): HasMany
 {
-    $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
-    
-    $this->update([
-        'subscription_status' => 'trial',
-        'subscription_package_id' => $trialPackage->id,
-        'trial_ends_at' => now()->addDays($trialPackage->trial_days),
-        'subscription_started_at' => now(),
+    return $this->hasMany(SubscriptionPayment::class);
+}
+
+public function subscriptionHistory(): HasMany
+{
+    return $this->hasMany(SubscriptionHistory::class);
+}
+
+
+/**
+ * Get current monthly recurring revenue
+ */
+public function getCurrentMRR(): float
+{
+    if ($this->subscription_status !== 'active' || !$this->subscriptionPackage) {
+        return 0.00;
+    }
+
+    return $this->monthly_fee ?? $this->subscriptionPackage->monthly_price;
+}
+
+/**
+ * Get outstanding subscription balance
+ */
+public function getOutstandingBalance(): float
+{
+    return $this->subscriptionInvoices()
+        ->where('status', 'pending')
+        ->sum('total_amount') ?? 0.00;
+}
+
+/**
+ * Check if subscription payments are up to date
+ */
+public function isPaymentUpToDate(): bool
+{
+    $overdueInvoices = $this->subscriptionInvoices()
+        ->where('status', 'pending')
+        ->where('due_date', '<', now())
+        ->count();
+
+    return $overdueInvoices === 0;
+}
+
+/**
+ * Get next billing date
+ */
+public function getNextBillingDate(): ?\Carbon\Carbon
+{
+    if ($this->subscription_status !== 'active' || !$this->subscription_expires_at) {
+        return null;
+    }
+
+    return $this->subscription_expires_at;
+}
+
+/**
+ * Create subscription invoice
+ */
+public function createSubscriptionInvoice(SubscriptionPackage $package, string $billingPeriod = 'monthly'): SubscriptionInvoice
+{
+    $amount = $billingPeriod === 'yearly' ? $package->yearly_price : $package->monthly_price;
+    $taxAmount = 0.00; // Calculate tax based on your requirements
+    $totalAmount = $amount + $taxAmount;
+
+    $invoiceDate = now();
+    $dueDate = $invoiceDate->copy()->addDays(7); // 7 days to pay
+
+    if ($billingPeriod === 'yearly') {
+        $periodStart = $invoiceDate->copy();
+        $periodEnd = $periodStart->copy()->addYear()->subDay();
+    } else {
+        $periodStart = $invoiceDate->copy();
+        $periodEnd = $periodStart->copy()->addMonth()->subDay();
+    }
+
+    return $this->subscriptionInvoices()->create([
+        'subscription_package_id' => $package->id,
+        'invoice_number' => SubscriptionInvoice::generateInvoiceNumber(),
+        'amount' => $amount,
+        'tax_amount' => $taxAmount,
+        'total_amount' => $totalAmount,
+        'billing_period' => $billingPeriod,
+        'status' => 'pending',
+        'invoice_date' => $invoiceDate,
+        'due_date' => $dueDate,
+        'period_start' => $periodStart,
+        'period_end' => $periodEnd,
+        'invoice_data' => [
+            'package_name' => $package->name,
+            'package_features' => $package->features,
+            'package_limits' => $package->limits,
+            'school_name' => $this->name,
+            'school_email' => $this->email,
+        ]
     ]);
 }
 
-// Check feature access based on package
-public function canAccessFeature($feature)
+/**
+ * Process subscription payment
+ */
+public function processSubscriptionPayment(SubscriptionInvoice $invoice, array $paymentData): SubscriptionPayment
 {
-    if (!$this->subscriptionPackage) {
-        return false;
+    $payment = $this->subscriptionPayments()->create([
+        'subscription_invoice_id' => $invoice->id,
+        'payment_number' => SubscriptionPayment::generatePaymentNumber(),
+        'amount' => $paymentData['amount'],
+        'payment_method' => $paymentData['payment_method'],
+        'status' => $paymentData['status'],
+        'payment_date' => $paymentData['payment_date'] ?? now(),
+        'transaction_id' => $paymentData['transaction_id'] ?? null,
+        'reference_number' => $paymentData['reference_number'] ?? null,
+        'gateway_response' => $paymentData['gateway_response'] ?? null,
+        'fee_amount' => $paymentData['fee_amount'] ?? 0.00,
+        'notes' => $paymentData['notes'] ?? null,
+    ]);
+
+    // Update invoice status if fully paid
+    if ($payment->isCompleted() && $payment->amount >= $invoice->total_amount) {
+        $invoice->update(['status' => 'paid']);
+        
+        // Extend subscription period
+        $this->extendSubscriptionPeriod($invoice->billing_period);
     }
 
-    return $this->subscriptionPackage->hasFeature($feature);
+    return $payment;
 }
 
-// Check limits
-public function hasReachedLimit($type)
+/**
+ * Extend subscription period after successful payment
+ */
+public function extendSubscriptionPeriod(string $billingPeriod): void
 {
-    if (!$this->subscriptionPackage) {
-        return true;
-    }
-
-    $limit = $this->subscriptionPackage->getLimit($type);
+    $currentExpiry = $this->subscription_expires_at ?? now();
     
-    if ($limit === -1) { // Unlimited
-        return false;
+    if ($billingPeriod === 'yearly') {
+        $newExpiry = $currentExpiry->addYear();
+    } else {
+        $newExpiry = $currentExpiry->addMonth();
     }
 
-    $current = match($type) {
-        'max_students' => $this->users()->where('role', 'student')->count(),
-        'max_instructors' => $this->users()->where('role', 'instructor')->count(),
-        'max_vehicles' => $this->vehicles()->count(),
-        default => 0
-    };
+    $this->update([
+        'subscription_expires_at' => $newExpiry,
+        'subscription_status' => 'active'
+    ]);
 
-    return $current >= $limit;
+    // Log the change
+    SubscriptionHistory::logChange(
+        $this->id,
+        'subscription_extended',
+        ['old_expiry' => $currentExpiry],
+        ['new_expiry' => $newExpiry, 'billing_period' => $billingPeriod],
+        "Subscription extended due to successful payment"
+    );
+}
+
+/**
+ * Upgrade to a new subscription package (UPDATED - uses subscription billing)
+ */
+public function upgradeTo(SubscriptionPackage $package, string $billingPeriod = 'monthly'): bool
+{
+    $oldData = [
+        'package_id' => $this->subscription_package_id,
+        'package_name' => $this->subscriptionPackage?->name,
+        'monthly_fee' => $this->monthly_fee,
+        'status' => $this->subscription_status
+    ];
+
+    $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price 
+        ? ($package->yearly_price / 12) 
+        : $package->monthly_price;
+
+    $expiresAt = $billingPeriod === 'yearly' 
+        ? now()->addYear() 
+        : now()->addMonth();
+
+    $updated = $this->update([
+        'subscription_status' => 'active',
+        'subscription_package_id' => $package->id,
+        'subscription_expires_at' => $expiresAt,
+        'monthly_fee' => $monthlyFee,
+        'subscription_started_at' => now(),
+    ]);
+
+    if ($updated) {
+        // Create invoice for the new package
+        $this->createSubscriptionInvoice($package, $billingPeriod);
+
+        // Log the upgrade
+        SubscriptionHistory::logChange(
+            $this->id,
+            'upgraded',
+            $oldData,
+            [
+                'package_id' => $package->id,
+                'package_name' => $package->name,
+                'monthly_fee' => $monthlyFee,
+                'billing_period' => $billingPeriod,
+                'expires_at' => $expiresAt
+            ],
+            "Upgraded to {$package->name} package"
+        );
+    }
+
+    return $updated;
+}
+
+
+
+
+/**
+ * Get subscription payment stats (SAFE VERSION)
+ */
+public function getSubscriptionStats(): array
+{
+    try {
+        // Check if subscription billing tables exist
+        if (!\Schema::hasTable('subscription_invoices')) {
+            return $this->getFallbackStats();
+        }
+
+        return [
+            'total_invoices' => $this->subscriptionInvoices()->count(),
+            'paid_invoices' => $this->subscriptionInvoices()->where('status', 'paid')->count(),
+            'pending_invoices' => $this->subscriptionInvoices()->where('status', 'pending')->count(),
+            'overdue_invoices' => $this->subscriptionInvoices()
+                ->where('status', 'pending')
+                ->where('due_date', '<', now())
+                ->count(),
+            'total_paid' => $this->getTotalRevenue(),
+            'outstanding_balance' => $this->getOutstandingBalance(),
+            'current_mrr' => $this->getCurrentMRR(),
+            'is_payment_up_to_date' => $this->isPaymentUpToDate(),
+            'next_billing_date' => $this->getNextBillingDate(),
+        ];
+    } catch (\Exception $e) {
+        \Log::info('Billing tables not ready, using fallback stats: ' . $e->getMessage());
+        return $this->getFallbackStats();
+    }
+}
+
+/**
+ * Fallback stats when billing tables don't exist
+ */
+protected function getFallbackStats(): array
+{
+    return [
+        'total_invoices' => 0,
+        'paid_invoices' => 0,
+        'pending_invoices' => 0,
+        'overdue_invoices' => 0,
+        'total_paid' => 0.00,
+        'outstanding_balance' => 0.00,
+        'current_mrr' => $this->monthly_fee ?? 0.00,
+        'is_payment_up_to_date' => true,
+        'next_billing_date' => $this->subscription_expires_at,
+    ];
+}
+
+/**
+ * Get monthly revenue (SAFE VERSION)
+ */
+public function getMonthlyRevenue(): float
+{
+    try {
+        if (!\Schema::hasTable('subscription_invoices')) {
+            return $this->monthly_fee ?? 0.00;
+        }
+
+        return $this->subscriptionInvoices()
+            ->where('status', 'paid')
+            ->where('billing_period', 'monthly')
+            ->whereMonth('invoice_date', now()->month)
+            ->whereYear('invoice_date', now()->year)
+            ->sum('amount') ?? 0.00;
+    } catch (\Exception $e) {
+        return $this->monthly_fee ?? 0.00;
+    }
+}
+
+/**
+ * Get total revenue (SAFE VERSION)
+ */
+public function getTotalRevenue(): float
+{
+    try {
+        if (!\Schema::hasTable('subscription_payments')) {
+            // Estimate based on monthly fee and subscription duration
+            $monthsActive = $this->subscription_started_at 
+                ? $this->subscription_started_at->diffInMonths(now()) + 1
+                : 1;
+            return ($this->monthly_fee ?? 0.00) * $monthsActive;
+        }
+
+        return $this->subscriptionPayments()
+            ->where('status', 'completed')
+            ->sum('amount') ?? 0.00;
+    } catch (\Exception $e) {
+        // Fallback calculation
+        $monthsActive = $this->subscription_started_at 
+            ? $this->subscription_started_at->diffInMonths(now()) + 1
+            : 1;
+        return ($this->monthly_fee ?? 0.00) * $monthsActive;
+    }
 }
 }
