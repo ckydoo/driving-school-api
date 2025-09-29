@@ -453,7 +453,13 @@ document.getElementById('submit-payment').addEventListener('click', async functi
         buttonText.textContent = 'Pay Now';
     }
 });
+function viewInvoice(invoiceId) {
+    // Extract subscription ID from current URL path
+    const pathParts = window.location.pathname.split('/');
+    const subscriptionId = pathParts[3]; // /admin/subscriptions/{ID}/billing
 
+    window.location.href = `/admin/subscriptions/${subscriptionId}/billing#invoice-${invoiceId}`;
+}
 async function handlePaymentSuccess(paymentIntentId) {
     try {
         const response = await fetch('{{ route("school.subscription.payment-success") }}', {
