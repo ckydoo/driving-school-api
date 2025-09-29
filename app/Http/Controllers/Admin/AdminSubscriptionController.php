@@ -3,11 +3,13 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Models\School;
-use App\Models\SubscriptionPayment;
-use App\Models\SubscriptionPackage;
 use Illuminate\Http\Request;
+use App\Models\SubscriptionInvoice;
+use App\Models\SubscriptionPackage;
+use App\Models\SubscriptionPayment;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -71,7 +73,7 @@ class AdminSubscriptionController extends Controller
         }
 
         $packages = SubscriptionPackage::active()->ordered()->get();
-        
+
         return view('admin.subscriptions.create', compact('packages', 'currentUser'));
     }
 
@@ -105,8 +107,8 @@ class AdminSubscriptionController extends Controller
         $billingPeriod = $request->billing_period ?? 'monthly';
 
         // Calculate monthly fee based on package and billing period
-        $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price 
-            ? ($package->yearly_price / 12) 
+        $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price
+            ? ($package->yearly_price / 12)
             : $package->monthly_price;
 
         $school = School::create([
@@ -138,9 +140,9 @@ class AdminSubscriptionController extends Controller
 
     // Load relationships including new billing relationships
     $subscription->load([
-        'users', 
-        'fleet', 
-        'courses', 
+        'users',
+        'fleet',
+        'courses',
         'subscriptionPackage',
         'subscriptionInvoices' => function($query) {
             $query->orderBy('invoice_date', 'desc')->limit(10);
@@ -216,8 +218,8 @@ class AdminSubscriptionController extends Controller
             // Calculate monthly fee if not provided
             $monthlyFee = $request->monthly_fee;
             if (!$monthlyFee) {
-                $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price 
-                    ? ($package->yearly_price / 12) 
+                $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price
+                    ? ($package->yearly_price / 12)
                     : $package->monthly_price;
             }
 
@@ -368,7 +370,7 @@ public function upgradePackage(School $subscription)
             abort(403, 'Access denied. Super Administrator privileges required.');
         }
 
-        $trialPackage = $subscription->subscriptionPackage ?? 
+        $trialPackage = $subscription->subscriptionPackage ??
                        SubscriptionPackage::where('slug', 'trial')->first();
 
         if (!$trialPackage) {
@@ -635,7 +637,7 @@ public function bulkAssignPackage(Request $request)
     $package = SubscriptionPackage::findOrFail($request->package_id);
     $billingPeriod = $request->billing_period;
     $schools = School::whereIn('id', $request->school_ids)->get();
-    
+
     $successCount = 0;
     $failCount = 0;
 
@@ -645,7 +647,7 @@ public function bulkAssignPackage(Request $request)
             $successCount++;
         } catch (\Exception $e) {
             $failCount++;
-            \Log::error("Failed to assign package to school {$school->id}: " . $e->getMessage());
+            Log::error("Failed to assign package to school {$school->id}: " . $e->getMessage());
         }
     }
 
@@ -699,17 +701,17 @@ public function exportSubscriptions(Request $request)
 
         $callback = function() use ($data) {
             $file = fopen('php://output', 'w');
-            
+
             // Write headers
             if ($data->isNotEmpty()) {
                 fputcsv($file, array_keys($data->first()));
             }
-            
+
             // Write data
             foreach ($data as $row) {
                 fputcsv($file, $row);
             }
-            
+
             fclose($file);
         };
 

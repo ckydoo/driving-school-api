@@ -53,16 +53,16 @@
                             @if($school->subscriptionPackage->is_popular)
                                 <span class="badge badge-warning mb-3">Most Popular</span>
                             @endif
-                            
+
                             <p class="text-muted">{{ $school->subscriptionPackage->description }}</p>
-                            
+
                             <div class="pricing-info mb-3">
                                 <div class="h5 text-success">
                                     {{ $school->subscriptionPackage->getFormattedMonthlyPrice() }}/month
                                 </div>
                                 @if($school->subscriptionPackage->hasYearlyPricing())
                                 <small class="text-muted">
-                                    or {{ $school->subscriptionPackage->getFormattedYearlyPrice() }}/year 
+                                    or {{ $school->subscriptionPackage->getFormattedYearlyPrice() }}/year
                                     (save {{ $school->subscriptionPackage->getYearlyDiscount() }}%)
                                 </small>
                                 @endif
@@ -84,7 +84,7 @@
                                 <span class="badge badge-{{ $statusClass }}">
                                     {{ ucfirst($school->subscription_status) }}
                                 </span>
-                                
+
                                 @if($school->subscription_status === 'trial' && $school->remaining_trial_days)
                                     <br><small class="text-muted">{{ $school->remaining_trial_days }} trial days remaining</small>
                                 @endif
@@ -93,7 +93,7 @@
                             <!-- Next Billing -->
                             @if($stats['next_billing_date'])
                             <div class="mb-3">
-                                <strong>Next Billing:</strong> 
+                                <strong>Next Billing:</strong>
                                 <span class="text-info">{{ $stats['next_billing_date']->format('M d, Y') }}</span>
                                 @if($stats['next_billing_date']->diffInDays() <= 7)
                                     <small class="text-warning">(Due soon)</small>
@@ -162,7 +162,7 @@
                                         $percentage = $usage['students']['percentage'];
                                         $progressColor = $percentage > 80 ? 'danger' : ($percentage > 60 ? 'warning' : 'success');
                                     @endphp
-                                    <div class="progress-bar bg-{{ $progressColor }}" 
+                                    <div class="progress-bar bg-{{ $progressColor }}"
                                          style="width: {{ $percentage }}%"></div>
                                 </div>
                                 <small class="text-muted">{{ round($percentage, 1) }}% used</small>
@@ -191,7 +191,7 @@
                                         $percentage = $usage['instructors']['percentage'];
                                         $progressColor = $percentage > 80 ? 'danger' : ($percentage > 60 ? 'warning' : 'success');
                                     @endphp
-                                    <div class="progress-bar bg-{{ $progressColor }}" 
+                                    <div class="progress-bar bg-{{ $progressColor }}"
                                          style="width: {{ $percentage }}%"></div>
                                 </div>
                                 <small class="text-muted">{{ round($percentage, 1) }}% used</small>
@@ -220,7 +220,7 @@
                                         $percentage = $usage['vehicles']['percentage'];
                                         $progressColor = $percentage > 80 ? 'danger' : ($percentage > 60 ? 'warning' : 'success');
                                     @endphp
-                                    <div class="progress-bar bg-{{ $progressColor }}" 
+                                    <div class="progress-bar bg-{{ $progressColor }}"
                                          style="width: {{ $percentage }}%"></div>
                                 </div>
                                 <small class="text-muted">{{ round($percentage, 1) }}% used</small>
@@ -327,7 +327,7 @@
                                 </span>
                                 @if($invoice->status === 'pending')
                                 <br>
-                                <button class="btn btn-sm btn-primary mt-1" 
+                                <button class="btn btn-sm btn-primary mt-1"
                                         onclick="payInvoice({{ $invoice->id }}, {{ $invoice->total_amount }})">
                                     Pay
                                 </button>
@@ -335,7 +335,7 @@
                             </div>
                         </div>
                         @endforeach
-                        
+
                         <div class="text-center">
                             <a href="{{ route('school.subscription.billing') }}" class="btn btn-sm btn-outline-primary">
                                 View All Invoices
@@ -406,251 +406,208 @@
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-// Initialize Stripe
-const stripe = Stripe('{{ config("services.stripe.key") }}');
-let elements, paymentElement;
+    // Initialize Stripe
+    const stripe = Stripe('{{ config("services.stripe.key") }}');
+    let elements, paymentElement;
 
-// Payment variables
-let currentInvoiceId = null;
-let currentAmount = 0;
+    // Payment variables
+    let currentInvoiceId = null;
+    let currentAmount = 0;
 
-document.addEventListener('DOMContentLoaded', function() {
-    initializeStripe();
-});
+    // Don't initialize elements here - we'll do it when we have a clientSecret
 
-function initializeStripe() {
-    elements = stripe.elements({
-        appearance: {
-            theme: 'stripe',
-            variables: {
-                colorPrimary: '#4e73df',
+    // Pay specific invoice
+    async function payInvoice(invoiceId, amount) {
+        currentInvoiceId = invoiceId;
+        currentAmount = parseFloat(amount);
+
+        try {
+            // Get payment intent from server
+            const response = await fetch('{{ route("school.subscription.pay-invoice") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    invoice_id: invoiceId
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showPaymentModal(result.client_secret, `Invoice ${result.invoice_number}`, amount);
+            } else {
+                showError(result.message);
             }
+        } catch (error) {
+            showError('Failed to initialize payment: ' + error.message);
         }
-    });
-}
+    }
 
-// Pay specific invoice
-async function payInvoice(invoiceId, amount) {
-    currentInvoiceId = invoiceId;
-    currentAmount = amount;
-    
-    try {
-        // Get payment intent from server
-        const response = await fetch('/admin/school/subscription/pay-invoice', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                invoice_id: invoiceId
-            })
-        });
+    // Pay outstanding balance
+    async function payOutstandingBalance() {
+        const outstandingAmount = {{ $stats['outstanding_balance'] }};
 
-        const result = await response.json();
-        
-        if (result.success) {
-            showPaymentModal(result.client_secret, `Invoice ${result.invoice_number}`, amount);
+        if (outstandingAmount <= 0) {
+            showError('No outstanding balance to pay');
+            return;
+        }
+
+        // Find the first pending invoice to pay
+        const pendingInvoices = @json($school->subscriptionInvoices->where('status', 'pending')->values());
+
+        if (pendingInvoices.length > 0) {
+            payInvoice(pendingInvoices[0].id, parseFloat(pendingInvoices[0].total_amount));
         } else {
-            showError(result.message);
+            showError('No pending invoices found');
         }
-    } catch (error) {
-        showError('Failed to initialize payment: ' + error.message);
-    }
-}
-
-// Pay outstanding balance
-async function payOutstandingBalance() {
-    const outstandingAmount = {{ $stats['outstanding_balance'] }};
-    
-    if (outstandingAmount <= 0) {
-        showError('No outstanding balance to pay');
-        return;
     }
 
-    // Find the first pending invoice to pay
-    const pendingInvoices = @json($school->subscriptionInvoices->where('status', 'pending')->values());
-    
-    if (pendingInvoices.length > 0) {
-        payInvoice(pendingInvoices[0].id, pendingInvoices[0].total_amount);
-    } else {
-        showError('No pending invoices found');
-    }
-}
+    function showPaymentModal(clientSecret, description, amount) {
+        // Ensure amount is a number
+        const numericAmount = parseFloat(amount) || 0;
 
-function showPaymentModal(clientSecret, description, amount) {
-    document.getElementById('paymentModal').querySelector('.modal-title').textContent = 
-        `Pay ${description} - ${amount.toFixed(2)}`;
-    
-    // Create payment element
-    paymentElement = elements.create('payment', {
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
-    });
-    
-    // Clear and mount payment element
-    const paymentElementDiv = document.getElementById('payment-element');
-    paymentElementDiv.innerHTML = '';
-    paymentElement.mount('#payment-element');
+        document.getElementById('paymentModal').querySelector('.modal-title').textContent =
+            `Pay ${description} - $${numericAmount.toFixed(2)}`;
 
-    // Store client secret for later use
-    document.getElementById('submit-payment').setAttribute('data-client-secret', clientSecret);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
-    modal.show();
-}
-
-// Handle payment submission
-document.getElementById('submit-payment').addEventListener('click', async function() {
-    const submitButton = this;
-    const buttonText = document.getElementById('button-text');
-    const messageDiv = document.getElementById('payment-message');
-    const clientSecret = submitButton.getAttribute('data-client-secret');
-
-    if (!clientSecret) {
-        showError('Payment not properly initialized');
-        return;
-    }
-
-    // Disable button and show loading state
-    submitButton.disabled = true;
-    buttonText.textContent = 'Processing...';
-    messageDiv.style.display = 'none';
-
-    try {
-        const { error, paymentIntent } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: window.location.href, // Return to current page
-            },
-            redirect: 'if_required'
+        // Create Elements with clientSecret
+        elements = stripe.elements({
+            clientSecret: clientSecret,
+            appearance: {
+                theme: 'stripe',
+                variables: {
+                    colorPrimary: '#4e73df',
+                }
+            }
         });
 
-        if (error) {
-            // Payment failed
-            showPaymentError(error.message);
+        // Create payment element
+        paymentElement = elements.create('payment');
+
+        // Clear and mount payment element
+        const paymentElementDiv = document.getElementById('payment-element');
+        paymentElementDiv.innerHTML = '';
+        paymentElement.mount('#payment-element');
+
+        // Store client secret for later use
+        document.getElementById('submit-payment').setAttribute('data-client-secret', clientSecret);
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        modal.show();
+    }
+
+    // Handle payment submission
+    document.getElementById('submit-payment').addEventListener('click', async function() {
+        const submitButton = this;
+        const buttonText = document.getElementById('button-text');
+        const messageDiv = document.getElementById('payment-message');
+        const clientSecret = submitButton.getAttribute('data-client-secret');
+
+        if (!clientSecret) {
+            showError('Payment not properly initialized');
+            return;
+        }
+
+        // Disable button and show loading state
+        submitButton.disabled = true;
+        buttonText.textContent = 'Processing...';
+        messageDiv.style.display = 'none';
+
+        try {
+            const { error, paymentIntent } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: window.location.href, // Return to current page
+                },
+                redirect: 'if_required'
+            });
+
+            if (error) {
+                // Payment failed
+                showPaymentError(error.message);
+                submitButton.disabled = false;
+                buttonText.textContent = 'Pay Now';
+            } else if (paymentIntent.status === 'succeeded') {
+                // Payment succeeded
+                await handlePaymentSuccess(paymentIntent.id);
+            }
+        } catch (err) {
+            showPaymentError('An unexpected error occurred: ' + err.message);
             submitButton.disabled = false;
             buttonText.textContent = 'Pay Now';
-        } else if (paymentIntent.status === 'succeeded') {
-            // Payment succeeded
-            await handlePaymentSuccess(paymentIntent.id);
         }
-    } catch (err) {
-        showPaymentError('An unexpected error occurred: ' + err.message);
-        submitButton.disabled = false;
-        buttonText.textContent = 'Pay Now';
+    });
+
+    async function handlePaymentSuccess(paymentIntentId) {
+        try {
+            const response = await fetch('{{ route("school.subscription.payment-success") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    payment_intent_id: paymentIntentId,
+                    invoice_id: currentInvoiceId
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Hide modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+                modal.hide();
+
+                // Show success message and reload page
+                showSuccess('Payment successful! Page will reload in 2 seconds.');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showPaymentError(result.message);
+            }
+        } catch (error) {
+            showPaymentError('Failed to confirm payment: ' + error.message);
+        }
     }
-});
 
-async function handlePaymentSuccess(paymentIntentId) {
-    try {
-        const response = await fetch('/admin/school/subscription/payment-success', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                payment_intent_id: paymentIntentId,
-                invoice_id: currentInvoiceId
-            })
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            // Hide modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
-            modal.hide();
-            
-            // Show success message and reload page
-            showSuccess('Payment successful! Page will reload in 2 seconds.');
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else {
-            showPaymentError(result.message);
-        }
-    } catch (error) {
-        showPaymentError('Failed to confirm payment: ' + error.message);
+    function showPaymentError(message) {
+        const messageDiv = document.getElementById('payment-message');
+        messageDiv.textContent = message;
+        messageDiv.style.display = 'block';
     }
-}
 
-function showPaymentError(message) {
-    const messageDiv = document.getElementById('payment-message');
-    messageDiv.textContent = message;
-    messageDiv.style.display = 'block';
-}
+    function showError(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
 
-function showError(message) {
-    // Create and show Bootstrap alert
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-triangle"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    // Insert at top of container
-    const container = document.querySelector('.container-fluid');
-    container.insertBefore(alertDiv, container.firstChild);
-    
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
-        }
-    }, 5000);
-}
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
 
-function showSuccess(message) {
-    // Create and show Bootstrap success alert
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    // Insert at top of container
-    const container = document.querySelector('.container-fluid');
-    container.insertBefore(alertDiv, container.firstChild);
-}
-
-// Handle modal cleanup
-document.getElementById('paymentModal').addEventListener('hidden.bs.modal', function () {
-    // Reset button state
-    const submitButton = document.getElementById('submit-payment');
-    const buttonText = document.getElementById('button-text');
-    submitButton.disabled = false;
-    buttonText.textContent = 'Pay Now';
-    
-    // Clear payment element
-    if (paymentElement) {
-        paymentElement.unmount();
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
-    
-    // Clear message
-    const messageDiv = document.getElementById('payment-message');
-    messageDiv.style.display = 'none';
-    messageDiv.textContent = '';
-    
-    // Reset variables
-    currentInvoiceId = null;
-    currentAmount = 0;
-});
 
-// Usage alerts
-@if(count($warnings ?? []) > 0)
-// Show usage warnings on page load
-window.addEventListener('load', function() {
-    setTimeout(() => {
-        if (confirm('Your usage is approaching plan limits. Would you like to view upgrade options?')) {
-            window.location.href = '{{ route("school.subscription.upgrade") }}';
-        }
-    }, 2000);
-});
-@endif
-</script>
-@endpush
+    function showSuccess(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+    }
+    </script>

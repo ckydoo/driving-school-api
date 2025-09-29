@@ -149,7 +149,7 @@
                                         </td>
                                         <td>
                                             <small>
-                                                {{ $invoice->period_start->format('M d, Y') }} - 
+                                                {{ $invoice->period_start->format('M d, Y') }} -
                                                 {{ $invoice->period_end->format('M d, Y') }}
                                             </small>
                                         </td>
@@ -180,20 +180,20 @@
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 @if($invoice->status === 'pending')
-                                                    <button class="btn btn-primary" 
+                                                    <button class="btn btn-primary"
                                                             onclick="payInvoice({{ $invoice->id }}, {{ $invoice->total_amount }})"
                                                             title="Pay Invoice">
                                                         <i class="fas fa-credit-card"></i>
                                                     </button>
                                                 @endif
-                                                
-                                                <button class="btn btn-info" 
+
+                                                <button class="btn btn-info"
                                                         onclick="viewInvoiceDetails({{ $invoice->id }})"
                                                         title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                
-                                                <a href="{{ route('school.subscription.invoice.download', $invoice->id) }}" 
+
+                                                <a href="{{ route('school.subscription.invoice.download', $invoice->id) }}"
                                                    class="btn btn-secondary"
                                                    title="Download">
                                                     <i class="fas fa-download"></i>
@@ -277,11 +277,11 @@
                             <i class="fas fa-credit-card"></i> Pay Outstanding Balance
                         </button>
                     @endif
-                    
+
                     <a href="{{ route('school.subscription.upgrade') }}" class="btn btn-success btn-block mb-2">
                         <i class="fas fa-arrow-up"></i> Upgrade Plan
                     </a>
-                    
+
                     <button class="btn btn-info btn-block" onclick="contactSupport()">
                         <i class="fas fa-question-circle"></i> Contact Support
                     </button>
@@ -340,138 +340,66 @@
 @push('scripts')
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-// Initialize Stripe (reuse from subscription dashboard)
-const stripe = Stripe('{{ config("services.stripe.key") }}');
-let elements, paymentElement;
-let currentInvoiceId = null;
-let currentAmount = 0;
+    // Initialize Stripe
+    const stripe = Stripe('{{ config("services.stripe.key") }}');
+    let elements, paymentElement;
+    let currentInvoiceId = null;
+    let currentAmount = 0;
 
-document.addEventListener('DOMContentLoaded', function() {
-    elements = stripe.elements({
-        appearance: {
-            theme: 'stripe',
+    // Payment functions
+    async function payInvoice(invoiceId, amount) {
+        currentInvoiceId = invoiceId;
+        currentAmount = parseFloat(amount);
+
+        try {
+            const response = await fetch('{{ route("school.subscription.pay-invoice") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    invoice_id: invoiceId
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showPaymentModal(result.client_secret, `Invoice ${result.invoice_number}`, amount);
+            } else {
+                showError(result.message);
+            }
+        } catch (error) {
+            showError('Failed to initialize payment: ' + error.message);
         }
-    });
-});
+    }
 
-// Payment functions (reuse from subscription dashboard)
-async function payInvoice(invoiceId, amount) {
-    // Same implementation as in subscription dashboard
-    currentInvoiceId = invoiceId;
-    currentAmount = amount;
-    
-    try {
-        const response = await fetch('{{ route("school.subscription.pay-invoice") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                invoice_id: invoiceId
-            })
+    function showPaymentModal(clientSecret, description, amount) {
+        // Ensure amount is a number
+        const numericAmount = parseFloat(amount) || 0;
+
+        document.getElementById('paymentModal').querySelector('.modal-title').textContent =
+            `Pay ${description} - $${numericAmount.toFixed(2)}`;
+
+        // Create Elements with clientSecret
+        elements = stripe.elements({
+            clientSecret: clientSecret,
+            appearance: {
+                theme: 'stripe'
+            }
         });
 
-        const result = await response.json();
-        
-        if (result.success) {
-            showPaymentModal(result.client_secret, `Invoice ${result.invoice_number}`, amount);
-        } else {
-            showError(result.message);
-        }
-    } catch (error) {
-        showError('Failed to initialize payment: ' + error.message);
-    }
-}
+        paymentElement = elements.create('payment');
+        const paymentElementDiv = document.getElementById('payment-element');
+        paymentElementDiv.innerHTML = '';
+        paymentElement.mount('#payment-element');
 
-async function payOutstandingBalance() {
-    const outstandingAmount = {{ $stats['outstanding_balance'] }};
-    
-    if (outstandingAmount <= 0) {
-        showError('No outstanding balance to pay');
-        return;
-    }
+        document.getElementById('submit-payment').setAttribute('data-client-secret', clientSecret);
 
-    const pendingInvoices = @json($school->subscriptionInvoices->where('status', 'pending')->values());
-    
-    if (pendingInvoices.length > 0) {
-        payInvoice(pendingInvoices[0].id, pendingInvoices[0].total_amount);
-    } else {
-        showError('No pending invoices found');
-    }
-}
-
-function viewInvoiceDetails(invoiceId) {
-    // Load invoice details via AJAX and show in modal
-    const invoice = @json($school->subscriptionInvoices->keyBy('id'));
-    const invoiceData = invoice[invoiceId];
-    
-    if (invoiceData) {
-        const content = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>Invoice Information</h6>
-                    <p><strong>Number:</strong> ${invoiceData.invoice_number}</p>
-                    <p><strong>Date:</strong> ${new Date(invoiceData.invoice_date).toLocaleDateString()}</p>
-                    <p><strong>Due Date:</strong> ${new Date(invoiceData.due_date).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> <span class="badge badge-${invoiceData.status === 'paid' ? 'success' : 'warning'}">${invoiceData.status.toUpperCase()}</span></p>
-                </div>
-                <div class="col-md-6">
-                    <h6>Billing Information</h6>
-                    <p><strong>Period:</strong> ${invoiceData.billing_period.toUpperCase()}</p>
-                    <p><strong>Amount:</strong> $${parseFloat(invoiceData.amount).toFixed(2)}</p>
-                    ${invoiceData.tax_amount > 0 ? `<p><strong>Tax:</strong> $${parseFloat(invoiceData.tax_amount).toFixed(2)}</p>` : ''}
-                    <p><strong>Total:</strong> $${parseFloat(invoiceData.total_amount).toFixed(2)}</p>
-                </div>
-            </div>
-            <hr>
-            <div class="row">
-                <div class="col-12">
-                    <h6>Service Period</h6>
-                    <p>${new Date(invoiceData.period_start).toLocaleDateString()} - ${new Date(invoiceData.period_end).toLocaleDateString()}</p>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('invoice-details-content').innerHTML = content;
-        
-        const payButton = document.getElementById('pay-from-details');
-        if (invoiceData.status === 'pending') {
-            payButton.style.display = 'inline-block';
-            payButton.onclick = () => {
-                bootstrap.Modal.getInstance(document.getElementById('invoiceDetailsModal')).hide();
-                payInvoice(invoiceId, parseFloat(invoiceData.total_amount));
-            };
-        } else {
-            payButton.style.display = 'none';
-        }
-        
-        const modal = new bootstrap.Modal(document.getElementById('invoiceDetailsModal'));
+        const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
         modal.show();
     }
-}
-
-function contactSupport() {
-    // Open mailto or show contact information
-    window.location.href = 'mailto:support@yourcompany.com?subject=Billing Support Request&body=Hello, I need help with my subscription billing...';
-}
-
-// Utility functions (same as subscription dashboard)
-function showPaymentModal(clientSecret, description, amount) {
-    document.getElementById('paymentModal').querySelector('.modal-title').textContent = 
-        `Pay ${description} - $${amount.toFixed(2)}`;
-    
-    paymentElement = elements.create('payment');
-    const paymentElementDiv = document.getElementById('payment-element');
-    paymentElementDiv.innerHTML = '';
-    paymentElement.mount('#payment-element');
-
-    document.getElementById('submit-payment').setAttribute('data-client-secret', clientSecret);
-    
-    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
-    modal.show();
-}
-
 function showError(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger alert-dismissible fade show';
@@ -479,10 +407,10 @@ function showError(message) {
         <i class="fas fa-exclamation-triangle"></i> ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    
+
     const container = document.querySelector('.container-fluid');
     container.insertBefore(alertDiv, container.firstChild);
-    
+
     setTimeout(() => {
         if (alertDiv.parentNode) {
             alertDiv.remove();
@@ -541,11 +469,11 @@ async function handlePaymentSuccess(paymentIntentId) {
         });
 
         const result = await response.json();
-        
+
         if (result.success) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
             modal.hide();
-            
+
             alert('Payment successful! Page will reload.');
             window.location.reload();
         } else {

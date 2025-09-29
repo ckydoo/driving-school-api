@@ -1,11 +1,14 @@
 <?php
 // app/Http/Controllers/School/SchoolSubscriptionController.php
 
-namespace App\Http\Controllers\School;
+namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\SubscriptionPackage;
+use Stripe\Stripe;
+use Stripe\PaymentIntent;
 use Illuminate\Http\Request;
+use App\Models\SubscriptionPackage;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class SchoolSubscriptionController extends Controller
@@ -40,7 +43,7 @@ class SchoolSubscriptionController extends Controller
                 }
             ]);
         } catch (\Exception $e) {
-            \Log::info('Billing tables not ready: ' . $e->getMessage());
+            Log::info('Billing tables not ready: ' . $e->getMessage());
         }
 
         // Get subscription stats
@@ -75,9 +78,9 @@ class SchoolSubscriptionController extends Controller
             ->get();
 
         return view('school.subscription.index', compact(
-            'school', 
-            'stats', 
-            'usage', 
+            'school',
+            'stats',
+            'usage',
             'availablePackages'
         ));
     }
@@ -129,7 +132,7 @@ class SchoolSubscriptionController extends Controller
         }
 
         $currentPackage = $school->subscriptionPackage;
-        
+
         // Get available upgrade packages
         $availablePackages = SubscriptionPackage::active()
             ->where('monthly_price', '>', $currentPackage?->monthly_price ?? 0)
@@ -144,9 +147,9 @@ class SchoolSubscriptionController extends Controller
         ];
 
         return view('school.subscription.upgrade', compact(
-            'school', 
-            'currentPackage', 
-            'availablePackages', 
+            'school',
+            'currentPackage',
+            'availablePackages',
             'usage'
         ));
     }
@@ -296,14 +299,15 @@ class SchoolSubscriptionController extends Controller
      */
     private function createInvoicePaymentIntent($school, $invoice)
     {
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        Stripe::setApiKey(config('services.stripe.secret'));
+
 
         $amount = $invoice->total_amount * 100; // Convert to cents
 
         // Create or get Stripe customer
         $stripeCustomerId = $school->createStripeCustomer();
 
-        $paymentIntent = \Stripe\PaymentIntent::create([
+        $paymentIntent = PaymentIntent::create([
             'amount' => $amount,
             'currency' => 'usd',
             'customer' => $stripeCustomerId,
