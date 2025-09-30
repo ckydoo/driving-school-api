@@ -38,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'instructor' => \App\Http\Middleware\InstructorMiddleware::class,
             'student' => \App\Http\Middleware\StudentMiddleware::class,
             'school.member' => \App\Http\Middleware\SchoolMemberMiddleware::class,
+            'check.subscription' => \App\Http\Middleware\CheckSubscription::class,
+
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -2,11 +2,16 @@
 // app/Models/School.php - Add these missing methods
 
 namespace App\Models;
+use Schema;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+
 
 class School extends Model
 {
@@ -115,17 +120,17 @@ class School extends Model
         if (!$this->subscriptionPackage) {
             return 100.0;
         }
-        
+
         $limit = $this->subscriptionPackage->getLimit($type);
-        
+
         if ($limit === -1) { // Unlimited
             return 0.0;
         }
-        
+
         if ($limit === 0) {
             return 100.0;
         }
-        
+
         $current = $this->getCurrentUsage($type);
         return min(100.0, ($current / $limit) * 100);
     }
@@ -140,7 +145,7 @@ class School extends Model
         }
 
         $limit = $this->subscriptionPackage->getLimit($type);
-        
+
         if ($limit === -1) { // Unlimited
             return false;
         }
@@ -164,13 +169,13 @@ class School extends Model
       protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($school) {
             // Generate slug if not provided
             if (empty($school->slug)) {
                 $school->slug = static::generateUniqueSlug($school->name);
             }
-            
+
             // Generate invitation code if not provided
             if (empty($school->invitation_code)) {
                 $school->invitation_code = static::generateUniqueInvitationCode();
@@ -191,17 +196,17 @@ class School extends Model
     {
         $slug = Str::slug($name);
         $originalSlug = $slug;
-        
+
         $counter = 1;
         while (static::where('slug', $slug)->exists()) {
             $slug = $originalSlug . '-' . $counter;
             $counter++;
         }
-        
+
         return $slug;
     }
 
-  
+
 
 
     /**
@@ -212,7 +217,7 @@ class School extends Model
         if (!$this->trial_ends_at || $this->subscription_status !== 'trial') {
             return 0;
         }
-        
+
         $remaining = now()->diffInDays($this->trial_ends_at, false);
         return max(0, (int) $remaining);
     }
@@ -222,8 +227,8 @@ class School extends Model
      */
     public function isTrialExpired(): bool
     {
-        return $this->subscription_status === 'trial' 
-            && $this->trial_ends_at 
+        return $this->subscription_status === 'trial'
+            && $this->trial_ends_at
             && $this->trial_ends_at->isPast();
     }
 
@@ -232,44 +237,11 @@ class School extends Model
      */
     public function isSubscriptionExpired(): bool
     {
-        return $this->subscription_expires_at 
+        return $this->subscription_expires_at
             && $this->subscription_expires_at->isPast();
     }
 
-    /**
-     * Initialize trial subscription for new school
-     */
-    public function initializeTrial()
-    {
-        $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
-        
-        if (!$trialPackage) {
-            // Create a basic trial package if none exists
-            $trialPackage = SubscriptionPackage::create([
-                'name' => 'Trial',
-                'slug' => 'trial',
-                'monthly_price' => 0.00,
-                'yearly_price' => 0.00,
-                'description' => 'Free trial',
-                'features' => ['Basic features'],
-                'limits' => [
-                    'max_students' => 50,
-                    'max_instructors' => 5,
-                    'max_vehicles' => 10
-                ],
-                'trial_days' => 30,
-                'is_active' => true,
-                'sort_order' => 1
-            ]);
-        }
-        
-        $this->update([
-            'subscription_status' => 'trial',
-            'subscription_package_id' => $trialPackage->id,
-            'trial_ends_at' => now()->addDays($trialPackage->trial_days),
-            'subscription_started_at' => now(),
-        ]);
-    }
+   
 
     /**
      * Create Stripe customer if not exists
@@ -282,7 +254,7 @@ class School extends Model
 
         try {
             \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-            
+
             $customer = \Stripe\Customer::create([
                 'email' => $this->email,
                 'name' => $this->name,
@@ -290,17 +262,17 @@ class School extends Model
                     'school_id' => $this->id,
                 ]
             ]);
-            
+
             $this->update(['stripe_customer_id' => $customer->id]);
-            
+
             return $customer->id;
         } catch (\Exception $e) {
-            \Log::error('Failed to create Stripe customer: ' . $e->getMessage());
+            Log::error('Failed to create Stripe customer: ' . $e->getMessage());
             return null;
         }
     }
 
-    
+
 
     /**
      * Generate unique invitation code
@@ -310,7 +282,7 @@ class School extends Model
         $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $numbers = '0123456789';
         $suffix = '';
-        
+
         // Generate 3 letters + 3 numbers
         for ($i = 0; $i < 3; $i++) {
             $suffix .= $letters[rand(0, strlen($letters) - 1)];
@@ -318,9 +290,9 @@ class School extends Model
         for ($i = 0; $i < 3; $i++) {
             $suffix .= $numbers[rand(0, strlen($numbers) - 1)];
         }
-        
+
         $code = 'DS' . $suffix;
-        
+
         // Ensure uniqueness
         while (self::where('invitation_code', $code)->exists()) {
             // Regenerate if code exists
@@ -333,7 +305,7 @@ class School extends Model
             }
             $code = 'DS' . $suffix;
         }
-        
+
         return $code;
     }
 
@@ -480,7 +452,7 @@ public function processSubscriptionPayment(SubscriptionInvoice $invoice, array $
     // Update invoice status if fully paid
     if ($payment->isCompleted() && $payment->amount >= $invoice->total_amount) {
         $invoice->update(['status' => 'paid']);
-        
+
         // Extend subscription period
         $this->extendSubscriptionPeriod($invoice->billing_period);
     }
@@ -494,7 +466,7 @@ public function processSubscriptionPayment(SubscriptionInvoice $invoice, array $
 public function extendSubscriptionPeriod(string $billingPeriod): void
 {
     $currentExpiry = $this->subscription_expires_at ?? now();
-    
+
     if ($billingPeriod === 'yearly') {
         $newExpiry = $currentExpiry->addYear();
     } else {
@@ -528,12 +500,12 @@ public function upgradeTo(SubscriptionPackage $package, string $billingPeriod = 
         'status' => $this->subscription_status
     ];
 
-    $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price 
-        ? ($package->yearly_price / 12) 
+    $monthlyFee = $billingPeriod === 'yearly' && $package->yearly_price
+        ? ($package->yearly_price / 12)
         : $package->monthly_price;
 
-    $expiresAt = $billingPeriod === 'yearly' 
-        ? now()->addYear() 
+    $expiresAt = $billingPeriod === 'yearly'
+        ? now()->addYear()
         : now()->addMonth();
 
     $updated = $this->update([
@@ -577,7 +549,7 @@ public function getSubscriptionStats(): array
 {
     try {
         // Check if subscription billing tables exist
-        if (!\Schema::hasTable('subscription_invoices')) {
+        if (!Schema::hasTable('subscription_invoices')) {
             return $this->getFallbackStats();
         }
 
@@ -596,7 +568,7 @@ public function getSubscriptionStats(): array
             'next_billing_date' => $this->getNextBillingDate(),
         ];
     } catch (\Exception $e) {
-        \Log::info('Billing tables not ready, using fallback stats: ' . $e->getMessage());
+        Log::info('Billing tables not ready, using fallback stats: ' . $e->getMessage());
         return $this->getFallbackStats();
     }
 }
@@ -625,7 +597,7 @@ protected function getFallbackStats(): array
 public function getMonthlyRevenue(): float
 {
     try {
-        if (!\Schema::hasTable('subscription_invoices')) {
+        if (!Schema::hasTable('subscription_invoices')) {
             return $this->monthly_fee ?? 0.00;
         }
 
@@ -646,9 +618,9 @@ public function getMonthlyRevenue(): float
 public function getTotalRevenue(): float
 {
     try {
-        if (!\Schema::hasTable('subscription_payments')) {
+        if (!Schema::hasTable('subscription_payments')) {
             // Estimate based on monthly fee and subscription duration
-            $monthsActive = $this->subscription_started_at 
+            $monthsActive = $this->subscription_started_at
                 ? $this->subscription_started_at->diffInMonths(now()) + 1
                 : 1;
             return ($this->monthly_fee ?? 0.00) * $monthsActive;
@@ -659,10 +631,127 @@ public function getTotalRevenue(): float
             ->sum('amount') ?? 0.00;
     } catch (\Exception $e) {
         // Fallback calculation
-        $monthsActive = $this->subscription_started_at 
+        $monthsActive = $this->subscription_started_at
             ? $this->subscription_started_at->diffInMonths(now()) + 1
             : 1;
         return ($this->monthly_fee ?? 0.00) * $monthsActive;
     }
 }
+
+/**
+ * Check if school has ever had a trial subscription
+ */
+public function hasUsedTrial(): bool
+{
+    // Check subscription_history for any trial records
+    $trialHistory = DB::table('subscription_history')
+        ->where('school_id', $this->id)
+        ->where('action', 'trial_started')
+        ->exists();
+    
+    if ($trialHistory) {
+        return true;
+    }
+    
+    // Check if trial_ends_at was ever set (indicates trial was used)
+    // Even if currently expired, if trial_ends_at exists, trial was used
+    if ($this->trial_ends_at) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Check if school can start a trial
+ */
+public function canStartTrial(): bool
+{
+    // Trial can only be started if:
+    // 1. Never had a trial before
+    // 2. Current status is not 'active' (has no paid subscription)
+    
+    if ($this->hasUsedTrial()) {
+        return false;
+    }
+    
+    if ($this->subscription_status === 'active') {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Initialize trial subscription (PROTECTED - checks if allowed)
+ */
+public function initializeTrial()
+{
+    // CRITICAL: Check if trial can be started
+    if (!$this->canStartTrial()) {
+        throw new \Exception('Trial period has already been used for this school.');
+    }
+    
+    $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
+    
+    if (!$trialPackage) {
+        throw new \Exception('Trial package not found.');
+    }
+    
+    $this->update([
+        'subscription_status' => 'trial',
+        'subscription_package_id' => $trialPackage->id,
+        'trial_ends_at' => now()->addDays($trialPackage->trial_days),
+        'subscription_started_at' => now(),
+    ]);
+    
+    // Log in subscription history
+    DB::table('subscription_history')->insert([
+        'school_id' => $this->id,
+        'action' => 'trial_started',
+        'new_data' => json_encode([
+            'package_id' => $trialPackage->id,
+            'trial_days' => $trialPackage->trial_days,
+            'trial_ends_at' => now()->addDays($trialPackage->trial_days)->toDateTimeString(),
+        ]),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
+/**
+ * Admin-only: Reset trial (bypasses normal restrictions)
+ */
+public function adminResetTrial()
+{
+    $trialPackage = SubscriptionPackage::where('slug', 'trial')->first();
+    
+    if (!$trialPackage) {
+        throw new \Exception('Trial package not found.');
+    }
+    
+    $this->update([
+        'subscription_status' => 'trial',
+        'subscription_package_id' => $trialPackage->id,
+        'trial_ends_at' => now()->addDays($trialPackage->trial_days),
+        'subscription_expires_at' => null,
+        'monthly_fee' => 0.00,
+    ]);
+    
+    // Log in subscription history
+    DB::table('subscription_history')->insert([
+        'school_id' => $this->id,
+        'action' => 'trial_reset',
+        'reason' => 'Admin reset trial',
+        'performed_by' => auth()->id(),
+        'new_data' => json_encode([
+            'package_id' => $trialPackage->id,
+            'trial_days' => $trialPackage->trial_days,
+            'trial_ends_at' => now()->addDays($trialPackage->trial_days)->toDateTimeString(),
+        ]),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 }

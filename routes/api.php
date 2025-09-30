@@ -30,8 +30,8 @@ Route::prefix('schools')->group(function () {
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [AuthController::class, 'register']);
 
-Route::middleware(['auth:sanctum', 'school.member'])->group(function () {
-    
+Route::middleware(['auth:sanctum', 'school.member', 'check.subscription'])->group(function () {
+
     // Production sync endpoints
     Route::prefix('sync')->group(function () {
         Route::get('/school-state', [ProductionSyncController::class, 'getSchoolSyncState']);
@@ -41,7 +41,7 @@ Route::middleware(['auth:sanctum', 'school.member'])->group(function () {
         Route::get('/download-table', [ProductionSyncController::class, 'downloadTableData']);
         Route::post('/upload-changes', [ProductionSyncController::class, 'uploadChanges']);
         Route::get('/status', [ProductionSyncController::class, 'getSyncStatus']);
-        
+
         // Legacy endpoints (keep for backward compatibility)
         Route::get('/download', [SyncController::class, 'download']);
         Route::post('/upload', [SyncController::class, 'upload']);
@@ -57,12 +57,23 @@ Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
 Route::get('/health', [ProductionSyncController::class, 'health']);
 
 // === PROTECTED ROUTES (Authentication required) ===
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'check.subscription'])->group(function () {
 
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/user', [AuthController::class, 'user']);
-
+  // ============================================
+    // SUBSCRIPTION ROUTES - MOVED INSIDE auth:sanctum middleware
+    // ============================================
+    Route::prefix('subscription')->withoutMiddleware('check.subscription')->group(function () {
+         Route::get('/status', [SubscriptionController::class, 'getSubscriptionStatus']);
+        Route::get('/packages', [SubscriptionController::class, 'getPackages']);
+        Route::get('/check-trial-eligibility', [SubscriptionController::class, 'checkTrialEligibility']);
+        Route::post('/create-payment-intent', [SubscriptionController::class, 'createPaymentIntent']);
+        Route::post('/confirm-payment', [SubscriptionController::class, 'handleSuccessfulPayment']);
+        Route::post('/cancel', [SubscriptionController::class, 'cancelSubscription']);
+        Route::get('/billing-history', [SubscriptionController::class, 'getBillingHistory']);
+    });
     // === SUPER ADMIN ONLY API ROUTES ===
     Route::middleware('super_admin')->group(function () {
         // System-wide statistics
@@ -82,7 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // All schools management
         Route::apiResource('admin/schools', SchoolController::class);
-        
+
         // System-wide user management
         Route::get('/admin/users/all', [UserController::class, 'allUsers']);
         Route::get('/admin/users/super-admins', [UserController::class, 'superAdmins']);
@@ -90,7 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // === ADMIN ROUTES (Both Super Admin and School Admin) ===
     Route::middleware(['admin', 'school_scope'])->group(function () {
-        
+
         // School Management - Protected endpoints
         Route::prefix('schools')->group(function () {
             Route::get('/dashboard', [SchoolController::class, 'dashboard']);
