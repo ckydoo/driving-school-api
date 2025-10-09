@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // === PUBLIC ROUTES (No authentication required) ===
+Route::post('/subscription/webhook', [SubscriptionController::class, 'handleWebhook']);
 
 // School Management - Public endpoints
 Route::prefix('schools')->group(function () {
@@ -49,9 +50,14 @@ Route::middleware(['auth:sanctum', 'school.member', 'check.subscription'])->grou
 });
 Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
     Route::get('/packages', [SubscriptionController::class, 'getPackages']);
-    Route::get('/status', [SubscriptionController::class, 'getSubscriptionStatus']);
+        // Mobile payment methods
     Route::post('/create-payment-intent', [SubscriptionController::class, 'createPaymentIntent']);
     Route::post('/confirm-payment', [SubscriptionController::class, 'handleSuccessfulPayment']);
+    
+    // Desktop payment methods (NEW)
+    Route::post('/create-checkout-session', [SubscriptionController::class, 'createCheckoutSession']);
+    Route::get('/checkout/success', [SubscriptionController::class, 'handleCheckoutSuccess']);
+    Route::get('/checkout/cancel', [SubscriptionController::class, 'handleCheckoutCancel']);
 });
 // Health check (no auth required)
 Route::get('/health', [ProductionSyncController::class, 'health']);
@@ -73,6 +79,8 @@ Route::middleware(['auth:sanctum', 'check.subscription'])->group(function () {
         Route::post('/confirm-payment', [SubscriptionController::class, 'handleSuccessfulPayment']);
         Route::post('/cancel', [SubscriptionController::class, 'cancelSubscription']);
         Route::get('/billing-history', [SubscriptionController::class, 'getBillingHistory']);
+            Route::post('/confirm-payment', [SubscriptionController::class, 'handleSuccessfulPayment']);
+    Route::post('/create-checkout-session', [SubscriptionController::class, 'createCheckoutSession']);
     });
     // === SUPER ADMIN ONLY API ROUTES ===
     Route::middleware('super_admin')->group(function () {

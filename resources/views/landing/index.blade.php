@@ -45,9 +45,8 @@
             <div class="col-lg-6" data-aos="fade-left">
                 <div class="text-center">
                     <div class="position-relative">
-                        <i class="fas fa-car fa-10x text-white opacity-75"></i>
+                        <img src="{{ asset('assets/dashboard.png') }}"style="height: 300px; width: auto; vertical-align: middle;">
                         <div class="position-absolute top-50 start-50 translate-middle">
-                            <i class="fas fa-graduation-cap fa-5x text-warning"></i>
                         </div>
                     </div>
                 </div>

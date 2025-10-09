@@ -39,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'student' => \App\Http\Middleware\StudentMiddleware::class,
             'school.member' => \App\Http\Middleware\SchoolMemberMiddleware::class,
             'check.subscription' => \App\Http\Middleware\CheckSubscription::class,
+            
 
         ]);
     })

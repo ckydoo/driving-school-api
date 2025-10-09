@@ -21,6 +21,8 @@ use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminSubscriptionPackageController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\SchoolSubscriptionController;
+use App\Http\Controllers\School\PaynowController;
+
 
 
 
@@ -286,6 +288,7 @@ Route::middleware(['auth', 'school_admin'])->prefix('admin/school')->name('schoo
         // Upgrade options
         Route::get('/upgrade', [SchoolSubscriptionController::class, 'upgrade'])
              ->name('upgrade');
+            
         
         // Process upgrade (AJAX)
         Route::post('/process-upgrade', [SchoolSubscriptionController::class, 'processUpgrade'])
@@ -311,7 +314,20 @@ Route::middleware(['auth', 'school_admin'])->prefix('admin/school')->name('schoo
     Route::get('/my-school/edit', [AdminSchoolController::class, 'editMySchool'])->name('my-school.edit');
     Route::put('/my-school', [AdminSchoolController::class, 'updateMySchool'])->name('my-school.update');
 });
+// Paynow routes (for school users)
+Route::middleware(['auth', 'verified'])->prefix('school')->name('school.')->group(function () {
+    Route::prefix('paynow')->name('paynow.')->group(function () {
+        Route::post('/initiate', [PaynowController::class, 'initiatePayment'])->name('initiate');
+        Route::post('/initiate-mobile', [PaynowController::class, 'initiateMobilePayment'])->name('initiate-mobile');
+        Route::post('/check-status', [PaynowController::class, 'checkStatus'])->name('check-status');
+    });
+});
 
+// Public Paynow callback routes (no auth middleware)
+Route::prefix('paynow')->name('paynow.')->group(function () {
+    Route::post('/callback', [PaynowController::class, 'handleCallback'])->name('callback');
+    Route::get('/return', [PaynowController::class, 'handleReturn'])->name('return');
+});
 
 // === FALLBACK ROUTE ===
 Route::fallback(function () {

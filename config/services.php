@@ -35,9 +35,16 @@ return [
         ],
     ],
     'stripe' => [
-    'key' => env('STRIPE_KEY'),
-    'secret' => env('STRIPE_SECRET'),
-],
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
 
+    'paynow' => [
+    'integration_id' => env('PAYNOW_INTEGRATION_ID'),
+    'integration_key' => env('PAYNOW_INTEGRATION_KEY'),
+    'result_url' => env('PAYNOW_RESULT_URL', env('APP_URL') . '/paynow/callback'),
+    'return_url' => env('PAYNOW_RETURN_URL', env('APP_URL') . '/paynow/return'),
+],
 
 ];

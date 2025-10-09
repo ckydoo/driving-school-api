@@ -241,37 +241,7 @@ class School extends Model
             && $this->subscription_expires_at->isPast();
     }
 
-   
-
-    /**
-     * Create Stripe customer if not exists
-     */
-    public function createStripeCustomer(): ?string
-    {
-        if ($this->stripe_customer_id) {
-            return $this->stripe_customer_id;
-        }
-
-        try {
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-
-            $customer = \Stripe\Customer::create([
-                'email' => $this->email,
-                'name' => $this->name,
-                'metadata' => [
-                    'school_id' => $this->id,
-                ]
-            ]);
-
-            $this->update(['stripe_customer_id' => $customer->id]);
-
-            return $customer->id;
-        } catch (\Exception $e) {
-            Log::error('Failed to create Stripe customer: ' . $e->getMessage());
-            return null;
-        }
-    }
-
+  
 
 
     /**
@@ -680,6 +650,110 @@ public function canStartTrial(): bool
     }
     
     return true;
+}
+
+  /**
+     * Get trial eligibility information
+     */
+    public function getTrialEligibility(): array
+    {
+        $hasUsedTrial = $this->hasUsedTrial();
+        $isCurrentlyOnTrial = $this->subscription_status === 'trial';
+        $hasActiveSub = $this->subscription_status === 'active';
+        
+        $canStart = $this->canStartTrial();
+        
+        // Determine reason if not eligible
+        $reason = null;
+        if ($isCurrentlyOnTrial) {
+            $reason = 'You are currently on a free trial';
+        } elseif ($hasUsedTrial) {
+            $reason = 'Trial period has already been used';
+        } elseif ($hasActiveSub) {
+            $reason = 'Trial not available for active subscriptions';
+        }
+
+        return [
+            'can_start_trial' => $canStart,
+            'has_used_trial' => $hasUsedTrial,
+            'trial_used_at' => $this->trial_used_at?->toISOString(),
+            'reason' => $reason,
+        ];
+    }
+
+    /**
+     * Mark trial as used (call when trial is first activated)
+     */
+    public function markTrialAsUsed(): void
+    {
+        if (is_null($this->trial_used_at)) {
+            $this->update(['trial_used_at' => now()]);
+            \Log::info("Trial marked as used for school {$this->id}");
+        }
+    }
+/**
+ * Create Stripe customer if not exists
+ * FIXED VERSION - Better error handling
+ */
+public function createStripeCustomer(): ?string
+{
+    // If already has a Stripe customer, return it
+    if ($this->stripe_customer_id) {
+        \Log::info('School already has Stripe customer', [
+            'school_id' => $this->id,
+            'customer_id' => $this->stripe_customer_id
+        ]);
+        return $this->stripe_customer_id;
+    }
+
+    try {
+        \Log::info('Creating new Stripe customer', [
+            'school_id' => $this->id,
+            'school_name' => $this->name,
+            'email' => $this->email
+        ]);
+
+        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        
+        $customer = \Stripe\Customer::create([
+            'email' => $this->email,
+            'name' => $this->name,
+            'metadata' => [
+                'school_id' => $this->id,
+                'school_name' => $this->name,
+            ],
+            'description' => "School: {$this->name}",
+        ]);
+        
+        // Update the school with the Stripe customer ID
+        $this->update(['stripe_customer_id' => $customer->id]);
+        
+        \Log::info('Stripe customer created successfully', [
+            'school_id' => $this->id,
+            'customer_id' => $customer->id
+        ]);
+        
+        return $customer->id;
+        
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        \Log::error('Failed to create Stripe customer', [
+            'school_id' => $this->id,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        // Return null to indicate failure
+        return null;
+        
+    } catch (\Exception $e) {
+        \Log::error('Unexpected error creating Stripe customer', [
+            'school_id' => $this->id,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return null;
+    }
 }
 
 /**

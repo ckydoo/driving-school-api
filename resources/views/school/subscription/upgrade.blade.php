@@ -22,6 +22,13 @@
     </div>
     @endif
 
+    @if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="fas fa-exclamation-triangle"></i> {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    @endif
+
     <!-- Current Plan Summary -->
     @if($currentPackage)
     <div class="card shadow mb-4">
@@ -63,78 +70,54 @@
     <div class="row">
         @foreach($availablePackages as $package)
         <div class="col-lg-4 col-md-6 mb-4">
-            <div class="card h-100 shadow {{ $package->is_popular ? 'border-warning' : '' }}">
+            <div class="card h-100 shadow {{ $package->is_popular ? 'border-primary' : '' }}">
                 @if($package->is_popular)
-                <div class="card-header bg-warning text-dark text-center">
+                <div class="card-header bg-primary text-white text-center">
                     <i class="fas fa-star"></i> Most Popular
                 </div>
                 @endif
-                
-                <div class="card-body text-center">
-                    <h5 class="card-title text-primary">{{ $package->name }}</h5>
-                    <p class="text-muted">{{ $package->description }}</p>
-                    
-                    <!-- Pricing -->
-                    <div class="pricing-section mb-3">
-                        <div class="h4 text-success">{{ $package->getFormattedMonthlyPrice() }}</div>
-                        <small class="text-muted">per month</small>
-                        
-                        @if($package->hasYearlyPricing())
-                        <div class="mt-2">
-                            <div class="h5 text-info">{{ $package->getFormattedYearlyPrice() }}</div>
-                            <small class="text-success">
-                                per year (save {{ $package->getYearlyDiscount() }}%)
-                            </small>
-                        </div>
-                        @endif
-                    </div>
 
-                    <!-- Limits Comparison -->
-                    <div class="limits-section mb-3">
-                        <h6 class="text-muted mb-2">What you get:</h6>
-                        <div class="row text-center">
-                            <div class="col-4">
-                                <div class="border-end">
-                                    <div class="h6 mb-1">
-                                        {{ $package->getLimitDescription('max_students') }}
-                                    </div>
-                                    <small class="text-muted">Students</small>
-                                    @if($usage['students'] > $package->getLimit('max_students') && $package->getLimit('max_students') !== -1)
-                                        <br><small class="text-danger">⚠ Over limit</small>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="border-end">
-                                    <div class="h6 mb-1">
-                                        {{ $package->getLimitDescription('max_instructors') }}
-                                    </div>
-                                    <small class="text-muted">Instructors</small>
-                                    @if($usage['instructors'] > $package->getLimit('max_instructors') && $package->getLimit('max_instructors') !== -1)
-                                        <br><small class="text-danger">⚠ Over limit</small>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="h6 mb-1">
-                                    {{ $package->getLimitDescription('max_vehicles') }}
-                                </div>
-                                <small class="text-muted">Vehicles</small>
-                                @if($usage['vehicles'] > $package->getLimit('max_vehicles') && $package->getLimit('max_vehicles') !== -1)
-                                    <br><small class="text-danger">⚠ Over limit</small>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
+                <div class="card-body">
+                    <h5 class="card-title text-center mb-3">{{ $package->name }}</h5>
+                    <h2 class="text-center text-primary mb-3">
+                        ${{ number_format($package->monthly_price, 2) }}
+                        <small class="text-muted">/month</small>
+                    </h2>
 
-                    <!-- Features -->
-                    <div class="features-section text-left mb-3">
+                    @if($package->hasYearlyPricing())
+                    <div class="text-center mb-3">
+                        <span class="badge bg-success">
+                            or ${{ number_format($package->yearly_price, 2) }}/year 
+                            ({{ $package->getYearlyDiscount() }}% off)
+                        </span>
+                    </div>
+                    @endif
+
+                    <p class="text-muted text-center mb-3">{{ $package->description }}</p>
+
+                    <ul class="list-unstyled">
                         @foreach($package->features as $feature)
-                        <div class="mb-1">
-                            <i class="fas fa-check text-success mr-2"></i>
-                            <small>{{ $feature }}</small>
-                        </div>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success"></i> {{ $feature }}
+                        </li>
                         @endforeach
+                    </ul>
+
+                    <hr>
+
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <strong>{{ $package->getLimit('max_students') }}</strong>
+                            <br><small>Students</small>
+                        </div>
+                        <div class="col-4">
+                            <strong>{{ $package->getLimit('max_instructors') }}</strong>
+                            <br><small>Instructors</small>
+                        </div>
+                        <div class="col-4">
+                            <strong>{{ $package->getLimit('max_vehicles') }}</strong>
+                            <br><small>Vehicles</small>
+                        </div>
                     </div>
                 </div>
 
@@ -196,7 +179,7 @@
                 </div>
 
                 <div class="upgrade-details">
-                    <div class="row">
+                    <div class="row mb-2">
                         <div class="col-6">
                             <strong>New Plan:</strong>
                         </div>
@@ -204,7 +187,7 @@
                             Professional
                         </div>
                     </div>
-                    <div class="row">
+                    <div class="row mb-2">
                         <div class="col-6">
                             <strong>Billing Period:</strong>
                         </div>
@@ -212,7 +195,7 @@
                             Monthly
                         </div>
                     </div>
-                    <div class="row">
+                    <div class="row mb-2">
                         <div class="col-6">
                             <strong>Amount:</strong>
                         </div>
@@ -224,19 +207,16 @@
 
                 <div class="alert alert-info mt-3">
                     <i class="fas fa-info-circle"></i>
-                    <strong>Note:</strong> Your subscription will be upgraded immediately after payment confirmation. 
-                    You'll be charged the prorated amount for the current billing period.
+                    <strong>Note:</strong> You will be redirected to Stripe Checkout to complete your payment securely.
                 </div>
 
-                <div id="upgrade-payment-element">
-                    <!-- Stripe payment elements will be mounted here -->
-                </div>
-                <div id="upgrade-payment-message" class="text-danger mt-2" style="display: none;"></div>
+                <div id="error-message" class="alert alert-danger" style="display: none;"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="confirm-upgrade">
-                    <span id="upgrade-button-text">Confirm Upgrade</span>
+                <button type="button" class="btn btn-primary" id="confirm-upgrade">
+                    <span class="spinner-border spinner-border-sm" id="loading-spinner" style="display: none;"></span>
+                    <span id="button-text">Proceed to Payment</span>
                 </button>
             </div>
         </div>
@@ -245,48 +225,58 @@
 @endsection
 
 @push('scripts')
-<script src="https://js.stripe.com/v3/"></script>
 <script>
-const stripe = Stripe('{{ config("services.stripe.key") }}');
-let elements, paymentElement;
 let currentUpgradeData = {};
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Stripe
-    elements = stripe.elements({
-        appearance: {
-            theme: 'stripe',
-        }
-    });
+// Handle upgrade button clicks
+document.querySelectorAll('.upgrade-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const packageId = this.dataset.packageId;
+        const packageName = this.dataset.packageName;
+        const monthlyPrice = parseFloat(this.dataset.monthlyPrice);
+        const yearlyPrice = parseFloat(this.dataset.yearlyPrice);
+        
+        // Get selected billing period
+        const billingPeriodInput = document.querySelector(`input[name="billing_period_${packageId}"]:checked`);
+        const billingPeriod = billingPeriodInput ? billingPeriodInput.value : 'monthly';
+        
+        const amount = billingPeriod === 'yearly' ? yearlyPrice : monthlyPrice;
 
-    // Handle upgrade button clicks
-    document.querySelectorAll('.upgrade-btn').forEach(button => {
-        button.addEventListener('click', handleUpgradeClick);
+        currentUpgradeData = {
+            packageId,
+            packageName,
+            billingPeriod,
+            amount
+        };
+
+        // Update modal
+        document.getElementById('upgrade-title').textContent = `Upgrade to ${packageName}`;
+        document.getElementById('upgrade-plan-name').textContent = packageName;
+        document.getElementById('upgrade-billing-period').textContent = 
+            billingPeriod === 'yearly' ? 'Yearly' : 'Monthly';
+        document.getElementById('upgrade-amount').textContent = `$${amount.toFixed(2)}`;
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('upgradeModal'));
+        modal.show();
     });
 });
 
-async function handleUpgradeClick(event) {
-    const button = event.target;
-    const packageId = button.getAttribute('data-package-id');
-    const packageName = button.getAttribute('data-package-name');
-    const monthlyPrice = parseFloat(button.getAttribute('data-monthly-price'));
-    const yearlyPrice = parseFloat(button.getAttribute('data-yearly-price'));
-    
-    // Get selected billing period
-    const billingPeriodInput = document.querySelector(`input[name="billing_period_${packageId}"]:checked`);
-    const billingPeriod = billingPeriodInput ? billingPeriodInput.value : 'monthly';
-    
-    const amount = billingPeriod === 'yearly' ? yearlyPrice : monthlyPrice;
+// Handle confirm upgrade
+document.getElementById('confirm-upgrade').addEventListener('click', async function() {
+    const button = this;
+    const buttonText = document.getElementById('button-text');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const errorMessage = document.getElementById('error-message');
 
-    currentUpgradeData = {
-        packageId,
-        packageName,
-        billingPeriod,
-        amount
-    };
+    // Show loading
+    button.disabled = true;
+    buttonText.textContent = 'Creating checkout session...';
+    loadingSpinner.style.display = 'inline-block';
+    errorMessage.style.display = 'none';
 
     try {
-        // Get payment intent from server
+        // Create Stripe Checkout session
         const response = await fetch('{{ route("school.subscription.process-upgrade") }}', {
             method: 'POST',
             headers: {
@@ -294,139 +284,31 @@ async function handleUpgradeClick(event) {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify({
-                package_id: packageId,
-                billing_period: billingPeriod
+                package_id: currentUpgradeData.packageId,
+                billing_period: currentUpgradeData.billingPeriod
             })
         });
 
         const result = await response.json();
         
-        if (result.success) {
-            showUpgradeModal(result.client_secret);
+        if (result.success && result.checkout_url) {
+            // Redirect to Stripe Checkout
+            buttonText.textContent = 'Redirecting to Stripe...';
+            window.location.href = result.checkout_url;
         } else {
-            showError(result.message);
+            throw new Error(result.message || 'Failed to create checkout session');
         }
+
     } catch (error) {
-        showError('Failed to initialize upgrade: ' + error.message);
+        console.error('Upgrade error:', error);
+        errorMessage.textContent = error.message;
+        errorMessage.style.display = 'block';
+        
+        // Reset button
+        button.disabled = false;
+        buttonText.textContent = 'Proceed to Payment';
+        loadingSpinner.style.display = 'none';
     }
-}
-
-function showUpgradeModal(clientSecret) {
-    // Update modal content
-    document.getElementById('upgrade-title').textContent = `Upgrade to ${currentUpgradeData.packageName}`;
-    document.getElementById('upgrade-plan-name').textContent = currentUpgradeData.packageName;
-    document.getElementById('upgrade-billing-period').textContent = 
-        currentUpgradeData.billingPeriod === 'yearly' ? 'Yearly' : 'Monthly';
-    document.getElementById('upgrade-amount').textContent = `$${currentUpgradeData.amount.toFixed(2)}`;
-
-    // Create payment element
-    paymentElement = elements.create('payment');
-    const paymentElementDiv = document.getElementById('upgrade-payment-element');
-    paymentElementDiv.innerHTML = '';
-    paymentElement.mount('#upgrade-payment-element');
-
-    // Store client secret
-    document.getElementById('confirm-upgrade').setAttribute('data-client-secret', clientSecret);
-
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('upgradeModal'));
-    modal.show();
-}
-
-// Handle upgrade confirmation
-document.getElementById('confirm-upgrade').addEventListener('click', async function() {
-    const submitButton = this;
-    const buttonText = document.getElementById('upgrade-button-text');
-    const messageDiv = document.getElementById('upgrade-payment-message');
-    const clientSecret = submitButton.getAttribute('data-client-secret');
-
-    // Disable button and show loading state
-    submitButton.disabled = true;
-    buttonText.textContent = 'Processing...';
-    messageDiv.style.display = 'none';
-
-    try {
-        const { error, paymentIntent } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: '{{ route("school.subscription.index") }}',
-            },
-            redirect: 'if_required'
-        });
-
-        if (error) {
-            showUpgradeError(error.message);
-            submitButton.disabled = false;
-            buttonText.textContent = 'Confirm Upgrade';
-        } else if (paymentIntent.status === 'succeeded') {
-            // Upgrade successful
-            const modal = bootstrap.Modal.getInstance(document.getElementById('upgradeModal'));
-            modal.hide();
-            
-            showSuccess('Upgrade successful! Redirecting to subscription dashboard...');
-            setTimeout(() => {
-                window.location.href = '{{ route("school.subscription.index") }}';
-            }, 2000);
-        }
-    } catch (err) {
-        showUpgradeError('An unexpected error occurred: ' + err.message);
-        submitButton.disabled = false;
-        buttonText.textContent = 'Confirm Upgrade';
-    }
-});
-
-function showUpgradeError(message) {
-    const messageDiv = document.getElementById('upgrade-payment-message');
-    messageDiv.textContent = message;
-    messageDiv.style.display = 'block';
-}
-
-function showError(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-triangle"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    const container = document.querySelector('.container-fluid');
-    container.insertBefore(alertDiv, container.firstChild);
-    
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
-        }
-    }, 5000);
-}
-
-function showSuccess(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show';
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    const container = document.querySelector('.container-fluid');
-    container.insertBefore(alertDiv, container.firstChild);
-}
-
-// Handle modal cleanup
-document.getElementById('upgradeModal').addEventListener('hidden.bs.modal', function () {
-    const submitButton = document.getElementById('confirm-upgrade');
-    const buttonText = document.getElementById('upgrade-button-text');
-    submitButton.disabled = false;
-    buttonText.textContent = 'Confirm Upgrade';
-    
-    if (paymentElement) {
-        paymentElement.unmount();
-    }
-    
-    const messageDiv = document.getElementById('upgrade-payment-message');
-    messageDiv.style.display = 'none';
-    messageDiv.textContent = '';
-    
-    currentUpgradeData = {};
 });
 </script>
 @endpush

@@ -130,79 +130,72 @@
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    @foreach($school->subscriptionInvoices as $invoice)
-                                    <tr>
-                                        <td>
-                                            <strong>{{ $invoice->invoice_number }}</strong>
-                                            @if($invoice->billing_period === 'yearly')
-                                                <span class="badge badge-info">Yearly</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div>{{ $invoice->invoice_date->format('M d, Y') }}</div>
-                                            @if($invoice->due_date->isPast() && $invoice->status === 'pending')
-                                                <small class="text-danger">Due {{ $invoice->due_date->format('M d, Y') }}</small>
-                                            @else
-                                                <small class="text-muted">Due {{ $invoice->due_date->format('M d, Y') }}</small>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <small>
-                                                {{ $invoice->period_start->format('M d, Y') }} -
-                                                {{ $invoice->period_end->format('M d, Y') }}
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <strong>${{ number_format($invoice->total_amount, 2) }}</strong>
-                                            @if($invoice->tax_amount > 0)
-                                                <br><small class="text-muted">(incl. ${{ number_format($invoice->tax_amount, 2) }} tax)</small>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @php
-                                                $statusClasses = [
-                                                    'pending' => $invoice->isOverdue() ? 'danger' : 'warning',
-                                                    'paid' => 'success',
-                                                    'failed' => 'danger',
-                                                    'cancelled' => 'secondary'
-                                                ];
-                                                $statusClass = $statusClasses[$invoice->status] ?? 'secondary';
-                                            @endphp
-                                            <span class="badge badge-{{ $statusClass }}">
-                                                @if($invoice->status === 'pending' && $invoice->isOverdue())
-                                                    Overdue
-                                                @else
-                                                    {{ ucfirst($invoice->status) }}
-                                                @endif
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                @if($invoice->status === 'pending')
-                                                    <button class="btn btn-primary"
-                                                            onclick="payInvoice({{ $invoice->id }}, {{ $invoice->total_amount }})"
-                                                            title="Pay Invoice">
-                                                        <i class="fas fa-credit-card"></i>
-                                                    </button>
-                                                @endif
+                                
+<tbody>
+    @foreach($subscription->subscriptionInvoices as $invoice)
+    <tr>
+        <td>{{ $invoice->invoice_number }}</td>
+        <td>{{ $invoice->invoice_date->format('M d, Y') }}</td>
+        <td>{{ $invoice->due_date->format('M d, Y') }}</td>
+        <td>${{ number_format($invoice->total_amount, 2) }}</td>
+        <td>
+            <span class="badge bg-{{ $invoice->status === 'paid' ? 'success' : ($invoice->status === 'pending' ? 'warning' : 'danger') }}">
+                {{ ucfirst($invoice->status) }}
+            </span>
+        </td>
+        <td class="text-center">
+            @if($invoice->status === 'pending')
+                {{-- Payment Buttons --}}
+                <div class="btn-group mb-2" role="group">
+                    {{-- Stripe Payment Button --}}
+                    <button class="btn btn-sm btn-primary" 
+                            onclick="payInvoice({{ $invoice->id }}, {{ $invoice->total_amount }})"
+                            title="Pay with Stripe">
+                        <i class="fab fa-stripe"></i> Stripe
+                    </button>
 
-                                                <button class="btn btn-info"
-                                                        onclick="viewInvoiceDetails({{ $invoice->id }})"
-                                                        title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
+                    {{-- Paynow Payment Button --}}
+                    <button class="btn btn-sm btn-success" 
+                            onclick="openPaynowModal({{ $invoice->id }}, '{{ $invoice->invoice_number }}', {{ $invoice->total_amount }})"
+                            title="Pay with Paynow">
+                        <i class="fas fa-mobile-alt"></i> Paynow
+                    </button>
+                </div>
+                <br>
+                {{-- Action Buttons --}}
+                <div class="btn-group" role="group">
+                    <button class="btn btn-info btn-sm" 
+                            onclick="viewInvoiceDetails({{ $invoice->id }})"
+                            title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
 
-                                                <a href="{{ route('school.subscription.invoice.download', $invoice->id) }}"
-                                                   class="btn btn-secondary"
-                                                   title="Download">
-                                                    <i class="fas fa-download"></i>
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
+                    <a href="{{ route('school.subscription.invoice.download', $invoice->id) }}"
+                       class="btn btn-secondary btn-sm"
+                       title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            @else
+                {{-- Paid Invoice - View and Download Only --}}
+                <div class="btn-group" role="group">
+                    <button class="btn btn-info btn-sm" 
+                            onclick="viewInvoiceDetails({{ $invoice->id }})"
+                            title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+
+                    <a href="{{ route('school.subscription.invoice.download', $invoice->id) }}"
+                       class="btn btn-secondary btn-sm"
+                       title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            @endif
+        </td>
+    </tr>
+    @endforeach
+</tbody>
                             </table>
                         </div>
                     @else
@@ -335,6 +328,7 @@
         </div>
     </div>
 </div>
+@include('school.subscription.partials.paynow-payment-modal')
 @endsection
 
 @push('scripts')

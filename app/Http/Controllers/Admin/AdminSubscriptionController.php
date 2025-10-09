@@ -445,7 +445,7 @@ public function createPayment(Request $request, School $subscription)
     $request->validate([
         'invoice_id' => 'required|exists:subscription_invoices,id',
         'amount' => 'required|numeric|min:0.01',
-        'payment_method' => 'required|in:stripe,paypal,bank_transfer,manual,credit_card',
+'payment_method' => 'required|in:stripe,paypal,bank_transfer,manual,credit_card,paynow',
         'payment_date' => 'required|date',
         'reference_number' => 'nullable|string',
         'notes' => 'nullable|string'

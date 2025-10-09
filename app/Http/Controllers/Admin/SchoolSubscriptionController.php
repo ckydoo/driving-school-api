@@ -157,42 +157,100 @@ class SchoolSubscriptionController extends Controller
     /**
      * Process upgrade request
      */
-    public function processUpgrade(Request $request)
-    {
-        $user = Auth::user();
-        $school = $user->school;
+  public function processUpgrade(Request $request)
+{
+    $user = Auth::user();
+    $school = $user->school;
 
-        if (!$school) {
-            return redirect()->route('admin.dashboard')
-                ->with('error', 'No school associated with your account.');
-        }
+    if (!$school) {
+        return response()->json([
+            'success' => false,
+            'message' => 'School not found'
+        ], 404);
+    }
 
-        $request->validate([
-            'package_id' => 'required|exists:subscription_packages,id',
-            'billing_period' => 'required|in:monthly,yearly'
+    $request->validate([
+        'package_id' => 'required|exists:subscription_packages,id',
+        'billing_period' => 'required|in:monthly,yearly'
+    ]);
+
+    $package = SubscriptionPackage::findOrFail($request->package_id);
+    $billingPeriod = $request->billing_period;
+
+    try {
+        \Log::info('Processing web upgrade request', [
+            'school_id' => $school->id,
+            'package_id' => $package->id,
+            'billing_period' => $billingPeriod
         ]);
 
-        $package = SubscriptionPackage::findOrFail($request->package_id);
-        $billingPeriod = $request->billing_period;
+        // Use Stripe Checkout for web (more compatible)
+        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
 
-        try {
-            // Create payment intent for the upgrade
-            $clientSecret = $this->createUpgradePaymentIntent($school, $package, $billingPeriod);
+        // Calculate amount
+        $amount = $billingPeriod === 'yearly' 
+            ? $package->yearly_price * 100
+            : $package->monthly_price * 100;
 
-            return response()->json([
-                'success' => true,
-                'client_secret' => $clientSecret,
-                'package_name' => $package->name,
-                'amount' => $package->getPriceForPeriod($billingPeriod)
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to process upgrade: ' . $e->getMessage()
-            ], 400);
+        // Ensure Stripe customer exists
+        if (!$school->stripe_customer_id) {
+            $school->createStripeCustomer();
+            $school->refresh();
         }
+
+        // Create Checkout Session
+        $session = \Stripe\Checkout\Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => 'usd',
+                    'product_data' => [
+                        'name' => $package->name . ' Subscription',
+                        'description' => $package->description,
+                    ],
+                    'unit_amount' => $amount,
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'payment',  // One-time payment
+            'success_url' => route('school.subscription.index') . '?success=1',
+            'cancel_url' => route('school.subscription.upgrade') . '?cancelled=1',
+            'customer' => $school->stripe_customer_id,
+            'client_reference_id' => $school->id,
+            'metadata' => [
+                'school_id' => $school->id,
+                'school_name' => $school->name,
+                'package_id' => $package->id,
+                'package_name' => $package->name,
+                'billing_period' => $billingPeriod,
+                'user_id' => $user->id,
+                'type' => 'subscription_upgrade'
+            ],
+        ]);
+
+        \Log::info('Checkout session created', [
+            'session_id' => $session->id,
+            'url' => $session->url
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'checkout_url' => $session->url,
+            'session_id' => $session->id
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Failed to create checkout session', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create checkout session: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Pay outstanding invoices
